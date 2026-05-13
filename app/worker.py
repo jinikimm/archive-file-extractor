@@ -14,7 +14,7 @@ def worker(queue):
             break
 
         job_id, file_path, pattern = task
-        extraction_service.extract(job_id, file_path, pattern)
+        extraction_service.extract_task(job_id, file_path, pattern)
 
     return ""
 
