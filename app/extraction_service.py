@@ -120,6 +120,8 @@ class ExtractionService:
                     "completed_at": datetime.utcnow(),
                 })
 
+        db.session.commit()
+
         return ""
 
 
