@@ -104,11 +104,12 @@ class ExtractionService:
                     self.save_extracted_file(file, job_id)
                 else:
                     additional_tasks.append([job_id, file, pattern])
-                    Job.query.filter_by(id=job_id).update({
-                        "task_count": Job.task_count + 1,
-                    })
                     queue.put([job_id, file, pattern])
-
+    
+            Job.query.filter_by(id=job_id).update({
+                "task_count": Job.task_count + len(additional_tasks),
+            })
+            
         else:
             Job.query.filter_by(id=job_id).update({
                 "task_count": Job.task_count - 1,
