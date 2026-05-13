@@ -4,6 +4,9 @@ from multiprocessing import Queue
 from flask import Flask
 from flask_migrate import Migrate
 
+from .error_handler import error_handlers
+from .worker import set_worker
+
 queue = Queue()
 
 def create_app(test_config=None):
@@ -27,5 +30,8 @@ def create_app(test_config=None):
 
     from . import extraction_api
     app.register_blueprint(extraction_api.bp)
+
+    error_handlers(app)
+    set_worker()
 
     return app
