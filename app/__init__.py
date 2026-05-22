@@ -5,7 +5,6 @@ from flask import Flask
 from flask_migrate import Migrate
 
 from .error_handler import error_handlers
-from .worker import set_worker
 
 queue = Queue()
 
@@ -32,6 +31,7 @@ def create_app(test_config=None):
     app.register_blueprint(extraction_api.bp)
 
     error_handlers(app)
+    from .worker import set_worker
     set_worker(app, app.config.get("CONCURRENCY", 4))
 
     return app
