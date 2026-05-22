@@ -1,5 +1,5 @@
 import os
-from multiprocessing import Queue
+from queue import Queue
 
 from flask import Flask
 from flask_migrate import Migrate
@@ -32,6 +32,6 @@ def create_app(test_config=None):
     app.register_blueprint(extraction_api.bp)
 
     error_handlers(app)
-    set_worker()
+    set_worker(app, app.config.get("CONCURRENCY", 4))
 
     return app

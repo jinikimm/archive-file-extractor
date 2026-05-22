@@ -18,10 +18,6 @@ bp = Blueprint("extractions", __name__, url_prefix="/extractions")
 extraction_service = ExtractionService()
 
 
-# ● Accepts the archive as multipart/form-data upload or a URL/path reference —
-# your choice, justify in the README
-# ● Body parameters: pattern (glob, required)
-# ● Response: 202 Accepted with a job_id
 @bp.route("/", methods=["POST"])
 def create_extraction_job():
     file = request.files.get("archive")
@@ -42,8 +38,7 @@ def create_extraction_job():
     return jsonify({"job_id": job_id}), 202
 
 
-# get job status (pending / running / completed / failed)
-@bp.route("/{job_id}", methods=["GET"])
+@bp.route("/<job_id>", methods=["GET"])
 def get_extraction_job_status(job_id):
     job = Job.query.get(job_id)
     if not job:
@@ -51,8 +46,7 @@ def get_extraction_job_status(job_id):
 
     return jsonify({"status": job.status}), 200
 
-## paginateion needed
-@bp.route("/{job_id}/results", methods=["GET"])
+@bp.route("/<job_id>/results", methods=["GET"])
 def list_extraction_results(job_id):
     job = Job.query.get(job_id)
 
@@ -70,8 +64,7 @@ def list_extraction_results(job_id):
     return jsonify({"total": total, "files": [serialize_file(f) for f in files]}), 200
 
 
-## delete the extraction job and all associated data
-@bp.route("/{job_id}", methods=["DELETE"])
+@bp.route("/<job_id>", methods=["DELETE"])
 def delete_extraction_job(job_id):
 
     return jsonify("Not implemented"), 204

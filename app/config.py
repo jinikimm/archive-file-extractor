@@ -15,3 +15,4 @@ class Config:
     )
 
     PORT = int(os.environ.get("PORT", 5000))
+    CONCURRENCY = int(os.environ.get("CONCURRENCY", 4))
