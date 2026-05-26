@@ -20,8 +20,7 @@ class ExtractionService:
         filename = file.filename
         if not filename:
             raise ValueError("Invalid file name")
-
-        file_path = os.path.join(download_dir, filename)
+        file_path = os.path.join(download_dir, f"{uuid.uuid4().hex}_{filename}")
 
         file.save(file_path)
 
@@ -70,15 +69,22 @@ class ExtractionService:
 
 
     def cleanup(self, job_id=None, task_dir=None, input_path=None, extract_dir="/tmp/extracted"):
-        if task_dir and os.path.isdir(task_dir):
-            shutil.rmtree(task_dir, ignore_errors=True)
-
         if job_id is None:
+            if task_dir and os.path.isdir(task_dir):
+                shutil.rmtree(task_dir, ignore_errors=True)
             return
 
         job = Job.query.filter_by(id=job_id).first()
-        if not job or job.status not in ("completed", "failed"):
+        if not job:
+            if task_dir and os.path.isdir(task_dir):
+                shutil.rmtree(task_dir, ignore_errors=True)
             return
+
+        if job.status not in ("completed", "failed"):
+            return
+
+        if task_dir and os.path.isdir(task_dir):
+            shutil.rmtree(task_dir, ignore_errors=True)
 
         shutil.rmtree(os.path.join(extract_dir, f"job_{job_id}"), ignore_errors=True)
 
@@ -96,7 +102,7 @@ class ExtractionService:
             additional_task_count = 0
             matched_files = []
 
-            job = Job.query.filter_by(id=job_id).first()
+            job = Job.query.filter_by(id=job_id).with_for_update().first()
             if job.status == "pending":
                 job.status = "running"
 
@@ -132,7 +138,7 @@ class ExtractionService:
 
         except Exception as e:
             db.session.rollback()
-            job = Job.query.filter_by(id=job_id).first()
+            job = Job.query.filter_by(id=job_id).with_for_update().first()
             if job and job.status != "completed":
                 job.status = "failed"
                 job.error_message = str(e)
