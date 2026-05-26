@@ -47,7 +47,11 @@ class ExtractionService:
     
 
     def extract_archive(self, file_path, job_id, extract_dir="/tmp/extracted"):
-        extract_dir = os.path.join(extract_dir, f"job_{job_id}", uuid.uuid4().hex)
+        job_root = os.path.join(extract_dir, f"job_{job_id}")
+        if os.path.abspath(file_path).startswith(os.path.abspath(job_root) + os.sep):
+            extract_dir = os.path.join(os.path.dirname(file_path), f"{os.path.basename(file_path)}_extracted")
+        else:
+            extract_dir = os.path.join(job_root, f"{os.path.basename(file_path)}_extracted")
         os.makedirs(extract_dir, exist_ok=True)
 
         file_list = []
@@ -68,31 +72,15 @@ class ExtractionService:
         return file_list, extract_dir
 
 
-    def cleanup(self, job_id=None, task_dir=None, input_path=None, extract_dir="/tmp/extracted"):
-        if job_id is None:
-            if task_dir and os.path.isdir(task_dir):
-                shutil.rmtree(task_dir, ignore_errors=True)
-            return
-
-        job = Job.query.filter_by(id=job_id).first()
-        if not job:
-            if task_dir and os.path.isdir(task_dir):
-                shutil.rmtree(task_dir, ignore_errors=True)
-            return
-
-        if job.status not in ("completed", "failed"):
-            return
-
-        if task_dir and os.path.isdir(task_dir):
-            shutil.rmtree(task_dir, ignore_errors=True)
-
-        shutil.rmtree(os.path.join(extract_dir, f"job_{job_id}"), ignore_errors=True)
-
+    def cleanup(self, input_path=None):
         if input_path and os.path.isfile(input_path):
             try:
                 os.remove(input_path)
             except OSError:
                 pass
+
+        if input_path and os.path.isdir(input_path):
+            shutil.rmtree(input_path, ignore_errors=True)
 
 
     def extract_task(self, job_id, file_path, pattern="json", depth=0):
@@ -145,5 +133,7 @@ class ExtractionService:
                 job.task_count = max(0, job.task_count - 1)
                 job.completed_at = datetime.utcnow()
                 db.session.commit()
+
+                self.cleanup(input_path=extract_dir)
 
         return extract_dir

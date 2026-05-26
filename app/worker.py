@@ -22,9 +22,10 @@ def worker(app, queue):
                 job_id, file_path, pattern, depth = task
                 task_dir = extraction_service.extract_task(job_id, file_path, pattern, depth)
             except Exception:
+                extraction_service.cleanup(task_dir)
                 logging.exception("Worker task failed")
             finally:
-                extraction_service.cleanup(job_id, task_dir, file_path)
+                extraction_service.cleanup(file_path)
                 queue.task_done()
 
     return ""
