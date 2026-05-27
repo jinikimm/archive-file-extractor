@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, abort
 
 from .extraction_service import ExtractionService
-from .model import db, Job, File
+from .model import ExtractionJob, File
 
 
 def serialize_file(file):
@@ -33,14 +33,14 @@ def create_extraction_job():
     except ValueError as e:
         abort(400, description=str(e))
     
-    job_id = extraction_service.submit_job(file_path, pattern)
+    job_id = extraction_service.submit_extraction_job(file_path, pattern)
 
     return jsonify({"job_id": job_id}), 202
 
 
 @bp.route("/<job_id>", methods=["GET"])
 def get_extraction_job_status(job_id):
-    job = Job.query.get(job_id)
+    job = ExtractionJob.query.get(job_id)
     if not job:
         abort(404, description="Job not found")
 
@@ -48,7 +48,7 @@ def get_extraction_job_status(job_id):
 
 @bp.route("/<job_id>/results", methods=["GET"])
 def list_extraction_results(job_id):
-    job = Job.query.get(job_id)
+    job = ExtractionJob.query.get(job_id)
 
     if not job:
         abort(404, description="Job not found")

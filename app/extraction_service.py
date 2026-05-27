@@ -8,7 +8,7 @@ import uuid
 
 import tarfile, zipfile
 
-from .model import db, Job, File
+from .model import db, ExtractionJob, File
 from . import queue
 
 
@@ -27,8 +27,8 @@ class ExtractionService:
         return file_path
 
 
-    def submit_job(self, file_path, pattern="json"):
-        job = Job(
+    def submit_extraction_job(self, file_path, pattern="json"):
+        job = ExtractionJob(
             full_path=file_path,
             file_name=os.path.basename(file_path),
             file_size=os.path.getsize(file_path),
@@ -36,15 +36,14 @@ class ExtractionService:
             nesting_depth=0,
             status="pending",
             submitted_at=datetime.utcnow(),
-            task_count=1,
         )
         db.session.add(job)
         db.session.commit()
 
-        queue.put([job.id, file_path, pattern, 0])
+        queue.put({"job_type": "extraction", "job_id": job.id, "file_path": file_path, "pattern": pattern})
 
         return job.id
-    
+
 
     def extract_archive(self, file_path, job_id, extract_dir="/tmp/extracted"):
         job_root = os.path.join(extract_dir, f"job_{job_id}")
@@ -83,57 +82,73 @@ class ExtractionService:
             shutil.rmtree(input_path, ignore_errors=True)
 
 
-    def extract_task(self, job_id, file_path, pattern="json", depth=0):
+    def extract_all_archives(self, file_path, job_id):
         extract_dir = None
+        archives_to_process = [(file_path, 0)]
+        max_nesting_depth = 0
+        extracted_file_entries = []
+
+        while archives_to_process:
+            current_archive_path, current_depth = archives_to_process.pop()
+            file_list, current_extract_dir = self.extract_archive(current_archive_path, job_id)
+            if extract_dir is None:
+                extract_dir = current_extract_dir
+
+            max_nesting_depth = max(max_nesting_depth, current_depth)
+
+            for extracted_file in file_list:
+                extracted_file_entries.append((extracted_file, current_archive_path, current_depth))
+                if extracted_file.lower().endswith((".zip", ".tar", ".tar.gz", ".tgz")):
+                    archives_to_process.append((extracted_file, current_depth + 1))
+
+        return extracted_file_entries, extract_dir, max_nesting_depth
+
+
+    def extract_task(self, job_id, file_path, pattern="json"):
+        extract_dir = None
+        job = ExtractionJob.query.filter_by(id=job_id).with_for_update().first()
+        if not job:
+            return None
+
         try:
-            file_list, extract_dir = self.extract_archive(file_path, job_id)
-            additional_task_count = 0
             matched_files = []
 
-            job = Job.query.filter_by(id=job_id).with_for_update().first()
             if job.status == "pending":
                 job.status = "running"
+                db.session.commit()
 
-            for file in file_list:
-                file_name = os.path.basename(file)
+            extracted_file_entries, extract_dir, max_nesting_depth = self.extract_all_archives(file_path, job_id)
+
+            for extracted_file, current_archive_path, current_depth in extracted_file_entries:
+                file_name = os.path.basename(extracted_file)
                 if fnmatch.fnmatch(file_name, pattern):
                     matched_files.append(
                         File(
-                            full_path=file,
+                            full_path=extracted_file,
                             file_name=file_name,
-                            file_size=os.path.getsize(file),
-                            source_archive_name=os.path.basename(file_path),
-                            nesting_depth=depth,
+                            file_size=os.path.getsize(extracted_file),
+                            source_archive_name=os.path.basename(current_archive_path),
+                            nesting_depth=current_depth,
                             job_id=job_id,
                         )
                     )
 
-                if file.lower().endswith((".zip", ".tar", ".tar.gz", ".tgz")):
-                    additional_task_count += 1
-                    queue.put([job_id, file, pattern, depth + 1])
+            db.session.add_all(matched_files)
 
-            if matched_files:
-                db.session.add_all(matched_files)
-
-            job.nesting_depth = max(job.nesting_depth, depth)
-            job.task_count = max(0, job.task_count - 1 + additional_task_count)
-
-            if job.task_count == 0 and job.status != "failed":
-                job.status = "completed"
-                job.completed_at = datetime.utcnow()
+            job.nesting_depth = max(job.nesting_depth, max_nesting_depth)
+            job.status = "completed"
+            job.completed_at = datetime.utcnow()
 
             db.session.commit()
 
         except Exception as e:
             db.session.rollback()
-            job = Job.query.filter_by(id=job_id).with_for_update().first()
+            job = ExtractionJob.query.filter_by(id=job_id).with_for_update().first()
             if job and job.status != "completed":
                 job.status = "failed"
                 job.error_message = str(e)
-                job.task_count = max(0, job.task_count - 1)
                 job.completed_at = datetime.utcnow()
                 db.session.commit()
-
-                self.cleanup(input_path=extract_dir)
+            self.cleanup(input_path=extract_dir)
 
         return extract_dir

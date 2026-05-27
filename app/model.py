@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 
-class Job(db.Model):
+class ExtractionJob(db.Model):
     __tablename__ = "jobs"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -23,8 +23,6 @@ class Job(db.Model):
 
     error_message = db.Column(db.String(255), nullable=True)
 
-    task_count = db.Column(db.Integer, nullable=False, default=0)
-
 
 class File(db.Model):
     __tablename__ = "files"
@@ -38,6 +36,22 @@ class File(db.Model):
     source_archive_name = db.Column(db.String(255), nullable=False)
 
     job_id = db.Column(db.Integer, db.ForeignKey("jobs.id"), nullable=False, index=True)
-    job = db.relationship("Job")
 
     nesting_depth = db.Column(db.Integer, nullable=False)
+
+
+class AnalysisJob(db.Model):
+    __tablename__ = "analysis_jobs"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    status = db.Column(db.String(20), nullable=False)
+    submitted_at = db.Column(db.DateTime, nullable=False)
+    started_at = db.Column(db.DateTime, nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    source_archive_name = db.Column(db.String(255), nullable=False)
+    error_message = db.Column(db.String(255), nullable=True)
+
+    statistics = db.Column(db.Text, nullable=True)
+    csv_path = db.Column(db.String(255), nullable=True)

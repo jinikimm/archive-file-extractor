@@ -2,9 +2,11 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 
 from . import queue
+from .analysis_service import AnalysisService
 from .extraction_service import ExtractionService
 
 extraction_service = ExtractionService()
+analysis_service = AnalysisService()
 executor = None
 
 def worker(app, queue):
@@ -15,12 +17,18 @@ def worker(app, queue):
                 queue.task_done()
                 break
 
-            job_id = None
             file_path = None
             task_dir = None
             try:
-                job_id, file_path, pattern, depth = task
-                task_dir = extraction_service.extract_task(job_id, file_path, pattern, depth)
+                job_type = task.get("job_type")
+                job_id = task.get("job_id")
+                file_path = task.get("file_path")
+                pattern = task.get("pattern", "json")
+
+                if job_type == "analyze":
+                    task_dir = analysis_service.analyze_task(job_id, file_path)
+                else:
+                    task_dir = extraction_service.extract_task(job_id, file_path, pattern)
             except Exception:
                 extraction_service.cleanup(task_dir)
                 logging.exception("Worker task failed")

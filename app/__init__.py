@@ -30,6 +30,9 @@ def create_app(test_config=None):
     from . import extraction_api
     app.register_blueprint(extraction_api.bp)
 
+    from . import analyze_api
+    app.register_blueprint(analyze_api.bp)
+
     error_handlers(app)
     from .worker import set_worker
     set_worker(app, app.config.get("CONCURRENCY", 4))
