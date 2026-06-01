@@ -2,9 +2,9 @@ import json
 import os
 from datetime import datetime
 
-from .token_scanner import scan_tokens
-from .model import db, AnalysisJob
-from . import queue
+from ..worker.token_scanner import scan_tokens
+from ..model import db, AnalysisJob
+from .. import queue
 from .extraction_service import ExtractionService
 
 
@@ -51,14 +51,14 @@ class AnalysisService:
 
             job.statistics = json.dumps(statistics)
             job.csv_path = csv_path
-            job.status = "done"
+            job.status = "completed"
             job.completed_at = datetime.utcnow()
             db.session.commit()
 
         except Exception as e:
             db.session.rollback()
             job = AnalysisJob.query.filter_by(id=analysis_job_id).with_for_update().first()
-            if job and job.status != "done":
+            if job and job.status != "completed":
                 job.status = "failed"
                 job.error_message = str(e)
                 job.completed_at = datetime.utcnow()

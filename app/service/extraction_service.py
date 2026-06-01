@@ -8,8 +8,8 @@ import uuid
 
 import tarfile, zipfile
 
-from .model import db, ExtractionJob, File
-from . import queue
+from ..model import db, ExtractionJob, File
+from .. import queue
 
 
 class ExtractionService:
@@ -34,7 +34,7 @@ class ExtractionService:
             file_size=os.path.getsize(file_path),
             source_archive_name=os.path.basename(file_path),
             nesting_depth=0,
-            status="pending",
+            status="queued",
             submitted_at=datetime.utcnow(),
         )
         db.session.add(job)
@@ -113,7 +113,7 @@ class ExtractionService:
         try:
             matched_files = []
 
-            if job.status == "pending":
+            if job.status == "queued":
                 job.status = "running"
                 db.session.commit()
 

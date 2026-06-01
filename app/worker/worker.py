@@ -1,9 +1,9 @@
 from concurrent.futures import ThreadPoolExecutor
 import logging
 
-from . import queue
-from .analysis_service import AnalysisService
-from .extraction_service import ExtractionService
+from .. import queue
+from ..service.analysis_service import AnalysisService
+from ..service.extraction_service import ExtractionService
 
 extraction_service = ExtractionService()
 analysis_service = AnalysisService()

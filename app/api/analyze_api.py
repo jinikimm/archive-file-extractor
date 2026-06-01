@@ -2,8 +2,8 @@ import json
 
 from flask import Blueprint, request, jsonify, abort
 
-from .analysis_service import AnalysisService
-from .model import AnalysisJob
+from ..service.analysis_service import AnalysisService
+from ..model import AnalysisJob
 
 bp = Blueprint("analyze", __name__, url_prefix="/analyze")
 analysis_service = AnalysisService()
@@ -11,7 +11,7 @@ analysis_service = AnalysisService()
 
 @bp.route("/", methods=["POST"])
 def create_analysis_job():
-    file = request.files.get("archive")
+    file = request.files.get("archive")     #content_type="multipart/form-data"
 
     if not file:
         abort(400, description="archive file is required")
@@ -41,7 +41,7 @@ def list_analysis_results(job_id):
     
     if not job:
         abort(404, description="Job not found")
-    if job.status != "done":
+    if job.status != "completed":
         abort(400, description="Job is not completed yet")
 
     statistics = json.loads(job.statistics) if job.statistics else {}

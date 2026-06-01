@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, abort
 
-from .extraction_service import ExtractionService
-from .model import ExtractionJob, File
+from ..service.extraction_service import ExtractionService
+from ..model import ExtractionJob, File
 
 
 def serialize_file(file):

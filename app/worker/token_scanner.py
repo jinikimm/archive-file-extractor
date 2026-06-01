@@ -9,7 +9,7 @@ TOKEN_PATTERN = re.compile(rb"<Tkn\d{3}[A-Z]{5}Tkn>")
 ANALYSIS_WORKERS = 4
 
 
-def _scan_file(file_path):
+def scan_file(file_path):
     try:
         with open(file_path, "rb") as f:
             content = f.read()
@@ -32,7 +32,7 @@ def scan_tokens(directory_path, csv_output_path):
     process_context = multiprocessing.get_context("spawn")
 
     with ProcessPoolExecutor(max_workers=ANALYSIS_WORKERS, mp_context=process_context) as executor:
-        counters = executor.map(_scan_file, file_paths)
+        counters = executor.map(scan_file, file_paths)
         for file_path, token_counter in zip(file_paths, counters):
             if not token_counter:
                 continue
