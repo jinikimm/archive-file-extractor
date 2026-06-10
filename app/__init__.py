@@ -1,8 +1,8 @@
 import os
-from queue import Queue
 
 from flask import Flask
 from flask_migrate import Migrate
+from sqlalchemy import text
 
 from .error_handler import error_handlers
 from .logger import init_logger
@@ -19,10 +19,6 @@ def create_app(test_config=None):
 
     os.makedirs(app.instance_path, exist_ok=True)
 
-    @app.get("/health")
-    def health():
-        return {"status": "ok"}, 200
-
     from .model import db
     
     db.init_app(app)
@@ -35,5 +31,14 @@ def create_app(test_config=None):
     app.register_blueprint(extraction_api.bp)
     from .api import analyze_api
     app.register_blueprint(analyze_api.bp)
+
+    
+    @app.get("/health")
+    def health():
+        try:
+            db.session.execute(text("SELECT 1"))
+            return {"status": "ok"}, 200
+        except Exception:
+            return {"status": "error"}, 500
 
     return app
