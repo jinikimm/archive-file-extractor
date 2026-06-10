@@ -4,7 +4,7 @@ Flask app that provides two services in one API:
 - **Archive File Extractor** service: recursively extracts nested archives and returns matched files.
 - **Firmware Analyzer** service: scans extracted files for token patterns and returns aggregated statistics.
 
-## Service boundary (read this first)
+## Service boundary
 
 This repository implements two independent requirement tracks in a single Flask app.
 
