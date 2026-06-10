@@ -5,8 +5,9 @@ from flask import Flask
 from flask_migrate import Migrate
 
 from .error_handler import error_handlers
+from .logger import init_logger
 
-queue = Queue()
+executor = None
 
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
@@ -18,8 +19,8 @@ def create_app(test_config=None):
 
     os.makedirs(app.instance_path, exist_ok=True)
 
-    @app.get("/healthz")
-    def healthz():
+    @app.get("/health")
+    def health():
         return {"status": "ok"}, 200
 
     from .model import db
@@ -27,14 +28,12 @@ def create_app(test_config=None):
     db.init_app(app)
     Migrate(app, db)
 
+    error_handlers(app)
+    init_logger(app)
+
     from .api import extraction_api
     app.register_blueprint(extraction_api.bp)
-
     from .api import analyze_api
     app.register_blueprint(analyze_api.bp)
-
-    error_handlers(app)
-    from .worker.worker import set_worker
-    set_worker(app, app.config.get("CONCURRENCY", 4))
 
     return app

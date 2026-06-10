@@ -1,127 +1,139 @@
 import io
+from datetime import datetime
+
 import pytest
 
 from app import create_app
-
+from app.model import ExtractionJob, File, db    
+from app.api import extraction_api
 
 @pytest.fixture
 def client():
-    app = create_app({"SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
     with app.app_context():
-        from app.model import db
-
         db.create_all()
         yield app.test_client()
 
-        from app import queue
-        from app.worker.worker import executor
 
-        for _ in range(4):
-            queue.put(None)
-        executor.shutdown(wait=True)
-
-
-def test_extraction_post_and_status(client):
+def submit_extraction(client, archive_name="sample.zip", pattern="*.json", payload=b"PK"):
     data = {
-        "archive": (io.BytesIO(b"dummydata"), "test.zip"),
-        "pattern": "*.json",
+        "archive": (io.BytesIO(payload), archive_name),
+        "pattern": pattern,
     }
-    response = client.post("/extractions/", data=data, content_type="multipart/form-data")
+    return client.post("/extractions/", data=data, content_type="multipart/form-data")
+
+
+def create_extraction_job(status="processing", error_message=None):
+    job = ExtractionJob(
+        id="job-ext-1",
+        work_path="/tmp/extract/job-ext-1/sample.zip",
+        file_name="sample.zip",
+        file_size=100,
+        status=status,
+        submitted_at=datetime.utcnow(),
+        error_message=error_message,
+    )
+    db.session.add(job)
+    db.session.commit()
+    return job
+
+
+def test_create_extraction_job_returns_202_and_job_id(client, monkeypatch):
+    monkeypatch.setattr(
+        extraction_api.extraction_service,
+        "submit_extraction_job",
+        lambda file, pattern: "job-submit-1",
+    )
+
+    response = submit_extraction(client)
+    body = response.get_json()
 
     assert response.status_code == 202
-
-    job_id = response.get_json()["job_id"]
-    status_response = client.get(f"/extractions/{job_id}")
-
-    assert status_response.status_code == 200
-    assert "status" in status_response.get_json()
-
-    # # polling for actual test data
-    # for _ in range(100):
-    #     status_response = client.get(f"/extractions/{job_id}")
-    #     status = status_response.get_json()["status"]
-
-    #     if status == "completed":
-    #         break
-
-    #     time.sleep(0.2)
+    assert body["job_id"] == "job-submit-1"
 
 
-def test_extraction_results_before_completed(client):
-    data = {
-        "archive": (io.BytesIO(b"dummydata"), "test.zip"),
-        "pattern": "*.json",
-    }
-    response = client.post("/extractions/", data=data, content_type="multipart/form-data")
+def test_create_extraction_job_missing_file_returns_validation_error(client):
+    response = client.post("/extractions/", data={}, content_type="multipart/form-data")
+    body = response.get_json()
 
-    job_id = response.get_json()["job_id"]
-    results_response = client.get(f"/extractions/{job_id}/results")
-
-    assert results_response.status_code in (400, 404)
+    assert response.status_code == 400
+    assert body["error"]["code"] == "validation_error"
 
 
-def test_extraction_results_after_completed(client):
-    data = {
-        "archive": (io.BytesIO(b"dummydata"), "test.zip"),
-        "pattern": "*.json",
-    }
-    response = client.post("/extractions/", data=data, content_type="multipart/form-data")
+def test_get_extraction_status_not_found(client):
+    response = client.get("/extractions/not-found")
 
-    job_id = response.get_json()["job_id"]
+    assert response.status_code == 404
+    assert response.get_json()["error"]["code"] == "not_found"
 
-    from app.model import db, ExtractionJob, File
 
-    job = ExtractionJob.query.get(job_id)
-    job.status = "completed"
+def test_get_extraction_status_processing(client):
+    create_extraction_job(status="processing")
+
+    response = client.get("/extractions/job-ext-1")
+
+    assert response.status_code == 200
+    assert response.get_json()["status"] == "processing"
+
+
+def test_get_extraction_results_processing_returns_conflict(client):
+    create_extraction_job(status="processing")
+
+    response = client.get("/extractions/job-ext-1/results")
+
+    assert response.status_code == 409
+    assert response.get_json()["error"]["code"] == "conflict"
+
+
+def test_get_extraction_results_failed_returns_reason(client):
+    create_extraction_job(status="failed", error_message="Archive extraction failed")
+
+    response = client.get("/extractions/job-ext-1/results")
+    body = response.get_json()
+
+    assert response.status_code == 409
+    assert body["error"]["code"] == "conflict"
+    assert "Job failed:" in body["error"]["details"][0]["message"]
+
+
+def test_get_extraction_results_completed_with_pagination(client):
+    create_extraction_job(status="completed")
 
     files = [
         File(
-            full_path=f"extracted/file{i}.json",
+            full_path=f"root/file{i}.json",
             file_name=f"file{i}.json",
-            file_size=1000 + i,
-            source_archive_name="test.zip",
+            file_size=100 + i,
+            source_archive_name="sample.zip",
             nesting_depth=1,
-            job_id=job_id,
+            job_id="job-ext-1",
+            extracted_at=datetime.utcnow(),
         )
         for i in range(5)
     ]
     db.session.add_all(files)
     db.session.commit()
 
-    for i in range(2):
-        response = client.get(f"/extractions/{job_id}/results?limit=3&offset={i*3}")
+    response = client.get("/extractions/job-ext-1/results?limit=2&offset=1")
+    body = response.get_json()
 
-        assert response.status_code == 200
-        results_data = response.get_json()
-        assert results_data["total"] == 5
-        assert len(results_data["files"]) == 3 if i < 1 else 2
-
-    response = client.get(f"/extractions/{job_id}/results")
     assert response.status_code == 200
-    results_data = response.get_json()
-    assert results_data["total"] == 5
-    assert len(results_data["files"]) == 5
+    assert body["total"] == 5
+    assert body["limit"] == 2
+    assert body["offset"] == 1
+    assert len(body["files"]) == 2
 
 
-def test_extraction_missing_fields(client):
-    response = client.post("/extractions/", data={}, content_type="multipart/form-data")
-    assert response.status_code == 400
-
-    data = {"archive": (io.BytesIO(b"dummydata"), "test.zip")}
-    response_missing_pattern = client.post(
-        "/extractions/", data=data, content_type="multipart/form-data"
+def test_request_id_header_is_propagated_on_error(client):
+    req_id = "req-ext-1"
+    response = client.post(
+        "/extractions/",
+        data={},
+        content_type="multipart/form-data",
+        headers={"X-Request-ID": req_id},
     )
-    assert response_missing_pattern.status_code == 400
+    body = response.get_json()
 
-
-def test_extraction_delete_not_implemented(client):
-    data = {
-        "archive": (io.BytesIO(b"dummydata"), "test.zip"),
-        "pattern": "*.json",
-    }
-    response = client.post("/extractions/", data=data, content_type="multipart/form-data")
-
-    job_id = response.get_json()["job_id"]
-    delete_response = client.delete(f"/extractions/{job_id}")
-
-    assert delete_response.status_code == 204
+    assert response.status_code == 400
+    assert response.headers.get("X-Request-ID") == req_id
+    assert body["request_id"] == req_id

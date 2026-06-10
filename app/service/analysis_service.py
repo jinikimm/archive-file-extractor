@@ -1,69 +1,109 @@
 import json
 import os
 from datetime import datetime
+import uuid
+import threading
+from flask import current_app
 
-from ..worker.token_scanner import scan_tokens
+from ..error_handler import ValidationError, NotFoundError, ConflictError
+from ..worker.firmware_analyzer import firmware_analyzer, get_analysis_csv_path
+from ..worker.archive_extractor import extract_all_archives_parrel
+from ..service.utils import save_file, cleanup
 from ..model import db, AnalysisJob
-from .. import queue
-from .extraction_service import ExtractionService
 
 
 class AnalysisService:
-
-    def __init__(self):
-        self.extraction_service = ExtractionService()
-
-    def save_file(self, file, download_dir="/tmp/uploads"):
-        return self.extraction_service.save_file(file, download_dir)
-
-    def get_analysis_csv_path(self, analysis_job_id):
-        return os.path.join("/tmp/analysis", f"analysis_{analysis_job_id}.csv")
-
-    def submit_analysis_job(self, file_path):
+    def create_analysis_job(self, job_id, file_path):
         job = AnalysisJob(
-            status="queued",
-            submitted_at=datetime.utcnow(),
+            id=job_id,
             source_archive_name=os.path.basename(file_path),
+            status="processing",
+            submitted_at=datetime.utcnow(),
         )
         db.session.add(job)
         db.session.commit()
 
-        queue.put({"job_type": "analyze", "job_id": job.id, "file_path": file_path})
+    def _process_analysis_job(self, app, job_id, file_path):
+        with app.app_context():
+            work_dir = os.path.dirname(file_path)
+            app.logger.info(json.dumps({"event": "job_started", "job_id": job_id}))
+            try:
+                file_list = extract_all_archives_parrel(file_path)
 
-        return job.id
+                csv_path = get_analysis_csv_path(job_id)
+                statistics = firmware_analyzer(file_list, work_dir, csv_path)
 
-    def analyze_task(self, analysis_job_id, file_path):
-        extract_dir = None
-        try:
-            job = AnalysisJob.query.filter_by(id=analysis_job_id).with_for_update().first()
-            if not job:
-                return None
+                job = AnalysisJob.query.get(job_id)
+                if job and job.status != "failed":
+                    job.statistics = json.dumps(statistics)
+                    job.csv_path = csv_path
+                    job.status = "completed"
+                    job.completed_at = datetime.utcnow()
+                    db.session.commit()
+                    app.logger.info(json.dumps({"event": "job_completed", "job_id": job_id}))
 
-            if job.status == "queued":
-                job.status = "running"
-                job.started_at = datetime.utcnow()
-                db.session.commit()
+            except Exception as e:
+                app.logger.error(json.dumps({"event": "job_failed", "job_id": job_id, "error": str(e)}))
 
-            _, extract_dir, _ = self.extraction_service.extract_all_archives(file_path, f"analysis_{analysis_job_id}")
-
-            csv_path = self.get_analysis_csv_path(analysis_job_id)
-            statistics = scan_tokens(extract_dir, csv_path)
-
-            job.statistics = json.dumps(statistics)
-            job.csv_path = csv_path
-            job.status = "completed"
-            job.completed_at = datetime.utcnow()
-            db.session.commit()
-
-        except Exception as e:
-            db.session.rollback()
-            job = AnalysisJob.query.filter_by(id=analysis_job_id).with_for_update().first()
-            if job and job.status != "completed":
+                db.session.rollback()
+                job = AnalysisJob.query.get(job_id)
                 job.status = "failed"
-                job.error_message = str(e)
                 job.completed_at = datetime.utcnow()
+                job.error_message = str(e)
                 db.session.commit()
-        finally:
-            self.extraction_service.cleanup(extract_dir)
 
-        return extract_dir
+            finally:
+                cleanup(work_dir)
+                db.session.remove()
+
+    def submit_analysis_job(self, file):
+        if not file:
+            raise ValidationError(
+                details=[{"field": "file", "message": "archive file is required"}]
+            )
+        
+        job_id = str(uuid.uuid4())
+        work_dir = os.path.join("/tmp", "analysis", job_id)
+        try:
+            file_path = save_file(file, work_dir)
+        except ValueError as e:
+            cleanup(work_dir)
+            raise ValidationError(
+                details=[{"field": "file", "message": str(e)}]
+            )
+
+        self.create_analysis_job(job_id, file_path)
+
+        app = current_app._get_current_object()
+        app.logger.info(json.dumps({"event": "job_submitted", "job_id": job_id}))
+        t = threading.Thread(
+            target=self._process_analysis_job, 
+            args=(app, job_id, file_path),
+            daemon=True,
+            )
+        t.start()
+
+        return job_id
+    
+    def get_analysis_job_status(self, job_id):
+        job = AnalysisJob.query.get(job_id)
+        if not job:
+            raise NotFoundError(details=[{"field": "job_id", "message": "Job not found"}])
+
+        return {"status": job.status}
+    
+    def list_analysis_results(self, job_id, limit=10, offset=0):
+        job = AnalysisJob.query.get(job_id)
+        if not job:
+            raise NotFoundError(details=[{"field": "job_id", "message": "Job not found"}])
+        if job.status == "processing":
+            raise ConflictError(details=[{"field": "job_id", "message": "Job is not completed yet"}])
+        if job.status == "failed":
+            raise ConflictError(details=[{"field": "job_id", "message": f"Job failed: {job.error_message}"}])
+
+        statistics = json.loads(job.statistics) if job.statistics else {}
+        items = sorted(statistics.items(), key=lambda item: item[0])
+        paged_items = items[offset:offset + limit]
+        paged_statistics = {token: count for token, count in paged_items}
+
+        return {"total": len(items), "statistics": paged_statistics, "csv_path": job.csv_path}
