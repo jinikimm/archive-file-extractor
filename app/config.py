@@ -1,18 +1,13 @@
 import os
 
 class Config:
-
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL",
-        (
-            "postgresql://"
-            f"{os.environ.get('DB_USER', 'testuser')}:"
-            f"{os.environ.get('DB_PASSWORD', 'test')}@"
-            f"{os.environ.get('DB_HOST', 'localhost')}:"
-            f"{os.environ.get('DB_PORT', '5432')}/"
-            f"{os.environ.get('DB_NAME', 'testdb')}"
-        ),
+    DB_HOST = os.getenv("DB_HOST", "localhost")
+    DB_PORT = os.getenv("DB_PORT", "5434")
+    DB_NAME = os.getenv("DB_NAME", "testdb")
+    DB_USER = os.getenv("DB_USER", "testuser")
+    DB_PASSWORD = os.getenv("DB_PASSWORD", "test")
+    SQLALCHEMY_DATABASE_URI = (
+        f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     )
-
-    PORT = int(os.environ.get("PORT", 5000))
-    CONCURRENCY = int(os.environ.get("CONCURRENCY", 4))
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    PORT = int(os.getenv("PORT", 5000))
