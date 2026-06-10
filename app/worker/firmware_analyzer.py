@@ -19,7 +19,7 @@ def save_csv(statistics, csv_output_path):
 
 
 def get_analysis_csv_path(analysis_job_id):
-    return os.path.join("/tmp/analysis", f"analysis_{analysis_job_id}.csv")
+    return os.path.join("/tmp/analysis/results", f"analysis_{analysis_job_id}.csv")
 
 
 def scan_token(file_path):
@@ -38,9 +38,11 @@ def firmware_analyzer(file_list, root_dir, csv_output_path, max_workers=10):
     statistics = Counter()
     process_context = multiprocessing.get_context("spawn")
 
+    file_paths = [f["full_path"] for f in file_list]
+
     with ProcessPoolExecutor(max_workers=max_workers, mp_context=process_context) as executor:
-        counters = executor.map(scan_token, file_list)
-        for file_path, token_counter in zip(file_list, counters):
+        counters = executor.map(scan_token, file_paths)
+        for file_path, token_counter in zip(file_paths, counters):
             if not token_counter:
                 continue
 
