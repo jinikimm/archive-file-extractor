@@ -4,8 +4,9 @@ from datetime import datetime
 import pytest
 
 from app import create_app
-from app.model import ExtractionJob, File, db    
 from app.api import extraction_api
+from app.model import ExtractionJob, File, db
+
 
 @pytest.fixture
 def client():
@@ -15,7 +16,9 @@ def client():
         yield app.test_client()
 
 
-def submit_extraction(client, archive_name="sample.zip", pattern="*.json", payload=b"PK"):
+def submit_extraction(
+    client, archive_name="sample.zip", pattern="*.json", payload=b"PK"
+):
     data = {
         "archive": (io.BytesIO(payload), archive_name),
         "pattern": pattern,

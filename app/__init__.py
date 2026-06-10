@@ -9,6 +9,7 @@ from .logger import init_logger
 
 executor = None
 
+
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
 
@@ -20,7 +21,7 @@ def create_app(test_config=None):
     os.makedirs(app.instance_path, exist_ok=True)
 
     from .model import db
-    
+
     db.init_app(app)
     Migrate(app, db)
 
@@ -28,11 +29,12 @@ def create_app(test_config=None):
     init_logger(app)
 
     from .api import extraction_api
+
     app.register_blueprint(extraction_api.bp)
     from .api import analyze_api
+
     app.register_blueprint(analyze_api.bp)
 
-    
     @app.get("/health")
     def health():
         try:

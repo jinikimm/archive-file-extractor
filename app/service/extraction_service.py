@@ -1,16 +1,16 @@
-
+import fnmatch
 import json
 import os
-from datetime import datetime
-import fnmatch
-import uuid
 import threading
+import uuid
+from datetime import datetime
+
 from flask import current_app
 
-from ..error_handler import ValidationError, NotFoundError, ConflictError
+from ..error_handler import ConflictError, NotFoundError, ValidationError
+from ..model import ExtractionJob, File, db
+from ..service.utils import cleanup, save_file
 from ..worker.archive_extractor import extract_all_archives_parrel
-from ..service.utils import save_file, cleanup
-from ..model import db, ExtractionJob, File
 
 
 class ExtractionService:
@@ -27,7 +27,7 @@ class ExtractionService:
         db.session.commit()
 
         return job_id
-    
+
     def update_extracted_file(self, f, job_id, work_dir):
         full_path = os.path.relpath(f["full_path"], work_dir)
         paths = full_path.split(os.sep)
@@ -63,11 +63,17 @@ class ExtractionService:
                     job.status = "completed"
                     job.completed_at = datetime.utcnow()
                     db.session.commit()
-                    app.logger.info(json.dumps({"event": "job_completed", "job_id": job_id}))
+                    app.logger.info(
+                        json.dumps({"event": "job_completed", "job_id": job_id})
+                    )
 
             except Exception as e:
-                app.logger.error(json.dumps({"event": "job_failed", "job_id": job_id, "error": str(e)}))
-                
+                app.logger.error(
+                    json.dumps(
+                        {"event": "job_failed", "job_id": job_id, "error": str(e)}
+                    )
+                )
+
                 db.session.rollback()
                 job = ExtractionJob.query.get(job_id)
                 job.status = "failed"
@@ -78,7 +84,6 @@ class ExtractionService:
             finally:
                 cleanup(work_dir)
                 db.session.remove()
-
 
     def submit_extraction_job(self, file, pattern):
         if not file:
@@ -97,38 +102,46 @@ class ExtractionService:
             file_path = save_file(file, work_dir)
         except ValueError as e:
             cleanup(work_dir)
-            raise ValidationError(
-                details=[{"field": "file", "message": str(e)}]
-            )
+            raise ValidationError(details=[{"field": "file", "message": str(e)}])
 
         self.create_extraction_job(job_id, file_path)
 
         app = current_app._get_current_object()
         app.logger.info(json.dumps({"event": "job_submitted", "job_id": job_id}))
         t = threading.Thread(
-            target=self._process_extraction_job, 
+            target=self._process_extraction_job,
             args=(app, job_id, file_path, pattern),
             daemon=True,
-            )
+        )
         t.start()
 
         return job_id
-    
+
     def get_extraction_job_status(self, job_id):
         job = ExtractionJob.query.get(job_id)
         if not job:
-            raise NotFoundError(details=[{"field": "job_id", "message": "Job not found"}])
+            raise NotFoundError(
+                details=[{"field": "job_id", "message": "Job not found"}]
+            )
 
-        return {"status": job.status} # matched count 도 반환해야함
-    
+        return {"status": job.status}  # matched count 도 반환해야함
+
     def list_extraction_results(self, job_id, limit=10, offset=0):
         job = ExtractionJob.query.get(job_id)
         if not job:
-            raise NotFoundError(details=[{"field": "job_id", "message": "Job not found"}])
+            raise NotFoundError(
+                details=[{"field": "job_id", "message": "Job not found"}]
+            )
         if job.status == "processing":
-            raise ConflictError(details=[{"field": "job_id", "message": "Job is not completed yet"}])
+            raise ConflictError(
+                details=[{"field": "job_id", "message": "Job is not completed yet"}]
+            )
         if job.status == "failed":
-            raise ConflictError(details=[{"field": "job_id", "message": f"Job failed: {job.error_message}"}])
+            raise ConflictError(
+                details=[
+                    {"field": "job_id", "message": f"Job failed: {job.error_message}"}
+                ]
+            )
 
         q = File.query.filter_by(job_id=job_id).order_by(File.nesting_depth.asc())
 

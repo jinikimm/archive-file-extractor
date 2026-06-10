@@ -88,7 +88,7 @@ def error_handlers(app):
             ),
             503,
         )
-    
+
     @app.errorhandler(500)
     def internal_error(e):
         return (

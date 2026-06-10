@@ -5,8 +5,8 @@ from datetime import datetime
 import pytest
 
 from app import create_app
-from app.model import AnalysisJob, db
 from app.api import analyze_api
+from app.model import AnalysisJob, db
 
 
 @pytest.fixture

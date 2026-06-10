@@ -1,6 +1,6 @@
+import json
 import os
 import time
-import json
 from io import BytesIO
 from urllib import error, request
 from uuid import uuid4
@@ -16,21 +16,21 @@ def _http_multipart(base_url, path, fields, headers=None):
         if isinstance(value, tuple):
             filename, data = value
             body_parts.append(
-                f'--{boundary}\r\n'
+                f"--{boundary}\r\n"
                 f'Content-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'
-                f'Content-Type: application/octet-stream\r\n\r\n'
+                f"Content-Type: application/octet-stream\r\n\r\n"
             )
             body_parts.append(data if isinstance(data, bytes) else data.encode())
-            body_parts.append(b'\r\n')
+            body_parts.append(b"\r\n")
         else:
             body_parts.append(
-                f'--{boundary}\r\n'
+                f"--{boundary}\r\n"
                 f'Content-Disposition: form-data; name="{name}"\r\n\r\n'
-                f'{value}\r\n'
+                f"{value}\r\n"
             )
 
-    body_parts.append(f'--{boundary}--\r\n')
-    body = b''.join(p if isinstance(p, bytes) else p.encode() for p in body_parts)
+    body_parts.append(f"--{boundary}--\r\n")
+    body = b"".join(p if isinstance(p, bytes) else p.encode() for p in body_parts)
 
     req_headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
     if headers:
@@ -72,6 +72,7 @@ def _http_json(method, base_url, path, headers=None):
 
 def _make_zip_bytes():
     import zipfile
+
     buf = BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr("data.json", '{"key": "value"}')
@@ -163,7 +164,9 @@ def test_live_extraction_results_pagination(base_url):
     final_status, _ = _poll_status(base_url, job_id, "extractions")
     assert final_status == "completed", f"Expected completed, got {final_status}"
 
-    rs, rb = _http_json("GET", base_url, f"/extractions/{job_id}/results?limit=1&offset=0")
+    rs, rb = _http_json(
+        "GET", base_url, f"/extractions/{job_id}/results?limit=1&offset=0"
+    )
 
     assert rs == 200
     assert rb["limit"] == 1
@@ -214,7 +217,9 @@ def test_live_extraction_job_not_found(base_url):
 
 
 def test_live_extraction_results_not_found(base_url):
-    status, body = _http_json("GET", base_url, "/extractions/non-existent-job-id/results")
+    status, body = _http_json(
+        "GET", base_url, "/extractions/non-existent-job-id/results"
+    )
 
     assert status == 404
     assert body["error"]["code"] == "not_found"

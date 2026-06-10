@@ -1,7 +1,7 @@
 import uuid
+from uuid import uuid4
 
 from flask_sqlalchemy import SQLAlchemy
-from uuid import uuid4
 
 db = SQLAlchemy()
 
@@ -32,7 +32,9 @@ class File(db.Model):
     file_name = db.Column(db.String(255), nullable=False)
     file_size = db.Column(db.Integer, nullable=False)
 
-    job_id = db.Column(db.String(36), db.ForeignKey("jobs.id"), nullable=False, index=True)
+    job_id = db.Column(
+        db.String(36), db.ForeignKey("jobs.id"), nullable=False, index=True
+    )
 
     nesting_depth = db.Column(db.Integer, nullable=False)
     source_archive_name = db.Column(db.String(255), nullable=False)
