@@ -1,0 +1,18 @@
+@startuml container-archive-file-extractor
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Container Diagram: Archive File Extractor
+
+Person(client, "API Client", "")
+
+System_Boundary(system, "Archive File Extractor") {
+    Container(api, "Flask API", "Python 3.11 / Flask", "Handles REST requests, manages job lifecycle, performs archive extraction and token analysis")
+    ContainerDb(db, "PostgreSQL 15", "PostgreSQL", "Stores ExtractionJob, File, and AnalysisJob records")
+    Container_Ext(tmp, "Temp Storage", "Host filesystem /tmp", "Staging area for uploaded archives during processing; removed after each job")
+}
+
+Rel(client, api, "REST API calls", "HTTP / JSON : 5000")
+Rel(api, db, "CRUD — jobs, files, analysis results", "SQLAlchemy / TCP : 5432")
+Rel(api, tmp, "Save, extract, read, cleanup", "POSIX filesystem")
+
+@enduml

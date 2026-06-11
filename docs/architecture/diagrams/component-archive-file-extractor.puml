@@ -1,0 +1,33 @@
+@startuml component-archive-file-extractor
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Component Diagram: Archive File Extractor — Flask API
+
+Container_Boundary(api_container, "Flask API") {
+    Component(extraction_api, "Extraction API", "Flask Blueprint /extractions", "POST /extractions/, GET /extractions/{id}, GET /extractions/{id}/results")
+    Component(analyze_api, "Analysis API", "Flask Blueprint /analyze", "POST /analyze/, GET /analyze/{id}, GET /analyze/{id}/results")
+
+    Component(extraction_svc, "ExtractionService", "Python class", "Manages extraction job lifecycle; dispatches daemon background thread")
+    Component(analysis_svc, "AnalysisService", "Python class", "Manages analysis job lifecycle; dispatches daemon background thread")
+
+    Component(archive_extractor, "ArchiveExtractor", "Python module", "Recursively extracts nested archives (ZIP/TAR/TAR.GZ/TGZ) using ThreadPoolExecutor; max depth 10")
+    Component(firmware_analyzer, "FirmwareAnalyzer", "Python module", "Scans files for token pattern using ProcessPoolExecutor (spawn context); exports CSV")
+
+    Component(utils, "Utils", "Python module", "File save and temp directory cleanup helpers")
+    Component(error_handler, "ErrorHandler", "Flask middleware", "Centralised error handling: ValidationError, NotFoundError, ConflictError, ArchiveError")
+    Component(logger, "RequestLogger", "Flask middleware", "Structured JSON logging; X-Request-ID generation and response header attachment")
+}
+
+ContainerDb(db, "PostgreSQL", "", "")
+
+Rel(extraction_api, extraction_svc, "delegates")
+Rel(analyze_api, analysis_svc, "delegates")
+Rel(extraction_svc, archive_extractor, "calls extract_all_archives_parrel()")
+Rel(extraction_svc, utils, "save_file(), cleanup()")
+Rel(analysis_svc, archive_extractor, "calls extract_all_archives_parrel()")
+Rel(analysis_svc, firmware_analyzer, "calls firmware_analyzer()")
+Rel(analysis_svc, utils, "save_file(), cleanup()")
+Rel(extraction_svc, db, "ExtractionJob, File — via SQLAlchemy")
+Rel(analysis_svc, db, "AnalysisJob — via SQLAlchemy")
+
+@enduml

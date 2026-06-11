@@ -1,0 +1,15 @@
+@startuml system-context-archive-file-extractor
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title System Context: Archive File Extractor
+
+Person(client, "API Client", "Submits archive files and queries job results via REST API")
+
+System(afe, "Archive File Extractor", "Flask REST API — recursively extracts nested archives and scans firmware tokens")
+
+SystemDb_Ext(db, "PostgreSQL", "Stores job lifecycle state, extracted file metadata, and analysis statistics")
+
+Rel(client, afe, "Upload archive, poll job status, retrieve results", "HTTP / JSON")
+Rel(afe, db, "Persist and query job and file records", "SQL / TCP")
+
+@enduml

@@ -1,0 +1,38 @@
+@startuml seq-extraction-archive-file-extractor
+title Sequence: Archive Extraction
+
+participant "API Client" as Client
+participant "Extraction API" as API
+participant "ExtractionService" as Svc
+participant "ArchiveExtractor\n(ThreadPoolExecutor)" as Extractor
+participant "PostgreSQL" as DB
+participant "/tmp/extract/{job_id}" as Tmp
+
+Client -> API: POST /extractions/ (archive, pattern)
+API -> Svc: submit_extraction_job(file, pattern)
+Svc -> Tmp: save_file(file)
+Svc -> DB: INSERT jobs (status=processing)
+Svc --> API: job_id
+API --> Client: 202 Accepted {"job_id": "..."}
+
+note over Svc: daemon Thread spawned
+
+Svc -> Extractor: extract_all_archives_parrel(file_path)
+loop each nested archive (depth ≤ 10)
+    Extractor -> Tmp: extract_archive() [parallel]
+end
+Extractor --> Svc: file_list
+
+Svc -> Svc: filter file_list by fnmatch(pattern)
+Svc -> DB: INSERT files (matched records)
+Svc -> DB: UPDATE jobs SET status=completed
+Svc -> Tmp: cleanup(work_dir)
+
+...
+
+Client -> API: GET /extractions/{job_id}/results?limit=&offset=
+API -> Svc: list_extraction_results(job_id, limit, offset)
+Svc -> DB: SELECT files WHERE job_id=... ORDER BY nesting_depth ASC
+API --> Client: 200 {"total": N, "files": [...], "limit": N, "offset": N}
+
+@enduml

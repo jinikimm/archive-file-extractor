@@ -1,0 +1,21 @@
+@startuml deployment-archive-file-extractor
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+
+title Deployment Diagram: Archive File Extractor
+
+Deployment_Node(host, "Docker Host", "Linux") {
+    Deployment_Node(app_node, "app container", "python:3.11-slim") {
+        Container(flask_app, "Flask Application", "Python 3.11, threaded=True", "Listens on port 5000\nRuns flask db upgrade on startup")
+    }
+    Deployment_Node(db_node, "db container", "postgres:15") {
+        ContainerDb(postgres, "PostgreSQL 15", "PostgreSQL", "TCP 5432 (internal)\nTCP 5434 (host-mapped)")
+    }
+    Deployment_Node(tmp_node, "Host /tmp", "Ephemeral filesystem") {
+        Container_Ext(tmp_storage, "Temp Files", "POSIX filesystem", "/tmp/extract/{job_id}/\n/tmp/analysis/{job_id}/\n/tmp/analysis/results/")
+    }
+}
+
+Rel(flask_app, postgres, "SQLAlchemy", "TCP 5432")
+Rel(flask_app, tmp_storage, "R/W during job processing", "POSIX")
+
+@enduml

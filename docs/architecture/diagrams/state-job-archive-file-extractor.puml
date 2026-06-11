@@ -1,0 +1,12 @@
+@startuml state-job-archive-file-extractor
+title Job Status State Machine
+
+[*] --> processing : Job submitted (DB INSERT)
+
+processing --> completed : Background thread succeeded
+processing --> failed : Exception raised in background thread
+
+completed --> [*]
+failed --> [*]
+
+@enduml

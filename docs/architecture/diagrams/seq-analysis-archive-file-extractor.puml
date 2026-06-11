@@ -1,0 +1,42 @@
+@startuml seq-analysis-archive-file-extractor
+title Sequence: Firmware Analysis
+
+participant "API Client" as Client
+participant "Analysis API" as API
+participant "AnalysisService" as Svc
+participant "ArchiveExtractor\n(ThreadPoolExecutor)" as Extractor
+participant "FirmwareAnalyzer\n(ProcessPoolExecutor/spawn)" as Analyzer
+participant "PostgreSQL" as DB
+participant "/tmp/analysis/{job_id}" as Tmp
+
+Client -> API: POST /analyze/ (archive)
+API -> Svc: submit_analysis_job(file)
+Svc -> Tmp: save_file(file)
+Svc -> DB: INSERT analysis_jobs (status=processing)
+Svc --> API: job_id
+API --> Client: 202 Accepted {"job_id": "...", "status": "queued"}
+
+note over Svc: daemon Thread spawned
+
+Svc -> Extractor: extract_all_archives_parrel(file_path)
+loop each nested archive (depth ≤ 10)
+    Extractor -> Tmp: extract_archive() [parallel]
+end
+Extractor --> Svc: file_list
+
+Svc -> Analyzer: firmware_analyzer(file_list, work_dir, csv_path)
+note over Analyzer: ProcessPoolExecutor.map(scan_token, file_paths)\nPattern: <Tkn\\d{3}[A-Z]{5}Tkn>
+Analyzer -> Tmp: save_csv(statistics, /tmp/analysis/results/analysis_{job_id}.csv)
+Analyzer --> Svc: statistics dict
+
+Svc -> DB: UPDATE analysis_jobs SET status=completed, statistics=JSON, csv_path
+Svc -> Tmp: cleanup(work_dir)
+
+...
+
+Client -> API: GET /analyze/{job_id}/results?limit=&offset=
+API -> Svc: list_analysis_results(job_id, limit, offset)
+Svc -> DB: SELECT analysis_jobs WHERE id=...
+API --> Client: 200 {"statistics": {...}, "csv_path": "...", "total": N}
+
+@enduml

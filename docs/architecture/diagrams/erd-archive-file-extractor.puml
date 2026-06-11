@@ -1,0 +1,42 @@
+@startuml erd-archive-file-extractor
+title ERD: Archive File Extractor
+
+entity "jobs" as jobs {
+  * id : VARCHAR(36) <<PK, UUID>>
+  --
+  work_path : VARCHAR(255)
+  file_name : VARCHAR(255)
+  file_size : INTEGER
+  status : VARCHAR(20)
+  submitted_at : DATETIME
+  completed_at : DATETIME
+  error_message : VARCHAR(255)
+}
+
+entity "files" as files {
+  * id : VARCHAR(36) <<PK, UUID>>
+  --
+  full_path : VARCHAR(255)
+  file_name : VARCHAR(255)
+  file_size : INTEGER
+  job_id : VARCHAR(36) <<FK → jobs.id>>
+  nesting_depth : INTEGER
+  source_archive_name : VARCHAR(255)
+  extracted_at : DATETIME
+}
+
+entity "analysis_jobs" as analysis_jobs {
+  * id : VARCHAR(36) <<PK, UUID>>
+  --
+  status : VARCHAR(20)
+  submitted_at : DATETIME
+  completed_at : DATETIME
+  source_archive_name : VARCHAR(255)
+  error_message : VARCHAR(255)
+  statistics : TEXT (JSON)
+  csv_path : VARCHAR(255)
+}
+
+jobs ||--o{ files : "has extracted files"
+
+@enduml
