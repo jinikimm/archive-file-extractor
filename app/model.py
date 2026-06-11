@@ -11,7 +11,7 @@ class ExtractionJob(db.Model):
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid4()))
 
-    work_path = db.Column(db.String(255), nullable=False)
+    work_path = db.Column(db.Text, nullable=False)
     file_name = db.Column(db.String(255), nullable=False)
     file_size = db.Column(db.Integer, nullable=False)
 
@@ -20,7 +20,7 @@ class ExtractionJob(db.Model):
     submitted_at = db.Column(db.DateTime, nullable=False)
     completed_at = db.Column(db.DateTime, nullable=True)
 
-    error_message = db.Column(db.String(255), nullable=True)
+    error_message = db.Column(db.Text, nullable=True)
 
 
 class File(db.Model):
@@ -28,7 +28,7 @@ class File(db.Model):
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid4()))
 
-    full_path = db.Column(db.String(255), nullable=False)
+    full_path = db.Column(db.Text, nullable=False)
     file_name = db.Column(db.String(255), nullable=False)
     file_size = db.Column(db.Integer, nullable=False)
 
@@ -61,7 +61,7 @@ class AnalysisJob(db.Model):
     completed_at = db.Column(db.DateTime, nullable=True)
 
     source_archive_name = db.Column(db.String(255), nullable=False)
-    error_message = db.Column(db.String(255), nullable=True)
+    error_message = db.Column(db.Text, nullable=True)
 
     statistics = db.Column(db.Text, nullable=True)
-    csv_path = db.Column(db.String(255), nullable=True)
+    csv_path = db.Column(db.Text, nullable=True)
