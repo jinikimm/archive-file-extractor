@@ -30,7 +30,7 @@ def create_app(test_config=None):
     error_handlers(app)
     init_logger(app)
 
-    with open("app/api/swagger.yaml") as f:
+    with open("docs/api/swagger.yaml") as f:
         template = yaml.safe_load(f)
     Swagger(app, template=template)
 
