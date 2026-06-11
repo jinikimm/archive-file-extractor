@@ -61,7 +61,7 @@ Archive File Extractor service:
 
 ```bash
 curl -X POST http://localhost:5000/extractions/ \
--F "archive=@./sample.zip" \
+-F "archive=@./example/sample_nested_json.zip" \
 -F "pattern=*.json"
 
 curl http://localhost:5000/extractions/<job_id>
@@ -74,7 +74,7 @@ Firmware Analyzer service:
 ```bash
 
 curl -X POST http://localhost:5000/analyze/ \
--F "archive=@./sample.zip"
+-F "archive=@./example/sample_nested_tokens.zip"
 
 curl http://localhost:5000/analyze/<job_id>
 
