@@ -1,6 +1,5 @@
-from flask import Blueprint, abort, jsonify, request
+from flask import Blueprint, jsonify, request
 
-from ..model import ExtractionJob, File
 from ..service.extraction_service import ExtractionService
 
 bp = Blueprint("extractions", __name__, url_prefix="/extractions")

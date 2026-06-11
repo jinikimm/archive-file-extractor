@@ -1,8 +1,5 @@
-import json
+from flask import Blueprint, jsonify, request
 
-from flask import Blueprint, abort, jsonify, request
-
-from ..model import AnalysisJob
 from ..service.analysis_service import AnalysisService
 
 bp = Blueprint("analyze", __name__, url_prefix="/analyze")
