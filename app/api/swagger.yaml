@@ -1,0 +1,157 @@
+openapi: 3.0.0
+
+info:
+  title: Archive Extractor / Analysis API
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:5000
+
+paths:
+
+  /analyze:
+    post:
+      summary: Submit analysis job
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                archive:
+                  type: string
+                  format: binary
+      responses:
+        "202":
+          description: Job submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+                  status:
+                    type: string
+
+  /analyze/{job_id}:
+    get:
+      summary: Get analysis job status
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job status
+
+  /analyze/{job_id}/results:
+    get:
+      summary: Get analysis results
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Analysis results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  csv_path:
+                    type: string
+                  statistics:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  total:
+                    type: integer
+
+  /extractions:
+    post:
+      summary: Submit extraction job
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                archive:
+                  type: string
+                  format: binary
+                pattern:
+                  type: string
+                  default: "*.json"
+      responses:
+        "202":
+          description: Job created
+
+  /extractions/{job_id}:
+    get:
+      summary: Get extraction job status
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job status
+
+  /extractions/{job_id}/results:
+    get:
+      summary: Get extraction results
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Extraction results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        full_path:
+                          type: string
+                        file_name:
+                          type: string
+                        file_size:
+                          type: integer
+                        nesting_depth:
+                          type: integer
+                        source_archive_name:
+                          type: string
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  total:
+                    type: integer

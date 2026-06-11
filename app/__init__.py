@@ -1,5 +1,7 @@
 import os
 
+import yaml
+from flasgger import Swagger
 from flask import Flask
 from flask_migrate import Migrate
 from sqlalchemy import text
@@ -28,11 +30,13 @@ def create_app(test_config=None):
     error_handlers(app)
     init_logger(app)
 
-    from .api import extraction_api
+    with open("app/api/swagger.yaml") as f:
+        template = yaml.safe_load(f)
+    Swagger(app, template=template)
+
+    from .api import analyze_api, extraction_api
 
     app.register_blueprint(extraction_api.bp)
-    from .api import analyze_api
-
     app.register_blueprint(analyze_api.bp)
 
     @app.get("/health")
