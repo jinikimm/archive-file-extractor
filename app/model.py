@@ -1,7 +1,10 @@
-import uuid
 from uuid import uuid4
 
 from flask_sqlalchemy import SQLAlchemy
+
+
+JOB_STATUS_ENUM = ("queued", "processing", "completed", "failed")
+
 
 db = SQLAlchemy()
 
@@ -15,7 +18,7 @@ class ExtractionJob(db.Model):
     file_name = db.Column(db.String(255), nullable=False)
     file_size = db.Column(db.Integer, nullable=False)
 
-    status = db.Column(db.String(20), nullable=False)
+    status = db.Column(db.Enum(*JOB_STATUS_ENUM, name="job_status_enum"), nullable=False)
 
     submitted_at = db.Column(db.DateTime, nullable=False)
     completed_at = db.Column(db.DateTime, nullable=True)
@@ -33,13 +36,18 @@ class File(db.Model):
     file_size = db.Column(db.Integer, nullable=False)
 
     job_id = db.Column(
-        db.String(36), db.ForeignKey("jobs.id"), nullable=False, index=True
+        db.String(36), db.ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
     nesting_depth = db.Column(db.Integer, nullable=False)
     source_archive_name = db.Column(db.String(255), nullable=False)
 
     extracted_at = db.Column(db.DateTime, nullable=False)
+    
+    __table_args__ = (
+        db.CheckConstraint("file_size >= 0", name="check_file_size_positive"),
+        db.CheckConstraint("nesting_depth >= 0", name="check_depth_positive"),
+    )
 
     def to_dict(self):
         return {
@@ -56,7 +64,7 @@ class AnalysisJob(db.Model):
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid4()))
 
-    status = db.Column(db.String(20), nullable=False)
+    status = db.Column(db.Enum(*JOB_STATUS_ENUM, name="job_status_enum"), nullable=False)
     submitted_at = db.Column(db.DateTime, nullable=False)
     completed_at = db.Column(db.DateTime, nullable=True)
 
