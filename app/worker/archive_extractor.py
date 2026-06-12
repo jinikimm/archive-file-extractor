@@ -30,7 +30,8 @@ def extract_archive(file_path):
 
         if file_path.endswith(".zip"):
             with zipfile.ZipFile(file_path, "r") as archive:
-                archive.extractall(extract_dir)
+                for member in archive.infolist():
+                    archive.extract(member, extract_dir)
 
         elif (
             file_path.endswith(".tar.gz")
@@ -38,8 +39,8 @@ def extract_archive(file_path):
             or file_path.endswith(".tgz")
         ):
             with tarfile.open(file_path, "r:*") as archive:
-                members = [member for member in archive.getmembers() if member.isfile()]
-                archive.extractall(extract_dir, members=members)
+                for member in archive.getmembers():
+                    archive.extract(member, extract_dir)
 
         for fp in glob.glob(os.path.join(extract_dir, "**"), recursive=True):
             if os.path.isfile(fp):
