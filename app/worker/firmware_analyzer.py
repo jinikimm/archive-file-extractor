@@ -8,14 +8,13 @@ from concurrent.futures import ProcessPoolExecutor
 TOKEN_PATTERN = re.compile(rb"<Tkn\d{3}[A-Z]{5}Tkn>")
 
 
-def save_csv(statistics, csv_output_path):
-    rows = [(token, count) for token, count in statistics.items()]
-    rows.sort(key=lambda item: (item[1], item[0]), reverse=True)
+def save_csv(rows, csv_output_path):
+    rows.sort(key=lambda item: (item[0], item[2], item[1]))
 
     os.makedirs(os.path.dirname(csv_output_path), exist_ok=True)
     with open(csv_output_path, "w", newline="", encoding="utf-8") as csv_file:
         writer = csv.writer(csv_file)
-        writer.writerow(["Token", "Occurrences"])
+        writer.writerow(["Path", "Token", "Occurrences"])
         writer.writerows(rows)
 
 
@@ -55,6 +54,6 @@ def firmware_analyzer(file_list, root_dir, csv_output_path, max_workers=10):
                 rows.append((rel_path, token, occurrences))
                 statistics[token] += occurrences
 
-    save_csv(statistics, csv_output_path)
+    save_csv(rows, csv_output_path)
 
     return dict(statistics)
