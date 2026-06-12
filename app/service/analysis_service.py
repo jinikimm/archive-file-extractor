@@ -4,7 +4,7 @@ import threading
 import uuid
 from datetime import datetime
 
-from flask import current_app
+from flask import current_app, request
 
 from ..error_handler import ConflictError, NotFoundError, ValidationError
 from ..model import AnalysisJob, db
@@ -124,5 +124,24 @@ class AnalysisService:
         return {
             "total": len(items),
             "statistics": paged_statistics,
-            "csv_path": job.csv_path,
+            "csv_download_url": request.host_url.rstrip("/") + f"/analyze/{job_id}/results/download",
         }
+
+    def get_analysis_csv_path(self, job_id):
+        job = AnalysisJob.query.get(job_id)
+        if not job:
+            raise NotFoundError(
+                details=[{"field": "job_id", "message": "Job not found"}]
+            )
+        if job.status == "processing":
+            raise ConflictError(
+                details=[{"field": "job_id", "message": "Job is not completed yet"}]
+            )
+        if job.status == "failed":
+            raise ConflictError(
+                details=[
+                    {"field": "job_id", "message": f"Job failed: {job.error_message}"}
+                ]
+            )
+
+        return job.csv_path

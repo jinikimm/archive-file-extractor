@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 
 from ..service.analysis_service import AnalysisService
 
@@ -25,3 +25,8 @@ def list_analysis_results(job_id):
     offset = int(request.args.get("offset", 0))
     result = analysis_service.list_analysis_results(job_id, limit, offset)
     return jsonify(result), 200
+
+@bp.route("/<job_id>/results/download", methods=["GET"])
+def download_analysis_results(job_id):
+    csv_path = analysis_service.get_analysis_csv_path(job_id)
+    return send_file(csv_path, as_attachment=True), 200
