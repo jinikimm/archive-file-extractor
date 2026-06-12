@@ -11,7 +11,7 @@ This repository implements two independent requirement tracks in a single Flask 
 | Track | Purpose | Endpoint prefix | Main output |
 |---|---|---|---|
 | Archive File Extractor | Extract nested archives and filter files by pattern | /extractions | matched file list |
-| Firmware Analyzer | Scan extracted files for token pattern frequency | /analyze | token statistics + csv path |
+| Firmware Analyzer | Scan extracted files for token pattern frequency | /analyze | token statistics + csv download URL |
 
 Shared runtime components:
 - same Flask process
@@ -79,6 +79,8 @@ curl -X POST http://localhost:5000/analyze/ \
 curl http://localhost:5000/analyze/<job_id>
 
 curl "http://localhost:5000/analyze/<job_id>/results?limit=20&offset=0"
+
+curl -OJ "http://localhost:5000/analyze/<job_id>/results/download"
 ```
 
 ## 3) Required environment variables and defaults
@@ -134,7 +136,8 @@ docker compose run --rm test pytest tests/integration_test/
 ### 6-B) Firmware Analyzer
 - job key: job_id
 - result association: job_id
-- result payload: statistics{} and csv_path
+- result payload: statistics{} and csv_download_url
+- csv download endpoint: GET /analyze/{job_id}/results/download
 
 ### Common behavior
 - unknown job_id: rejected with 404
@@ -154,6 +157,7 @@ docker compose run --rm test pytest tests/integration_test/
 - submit: POST /analyze/ with archive
 - status: GET /analyze/{job_id}
 - results: GET /analyze/{job_id}/results?limit=&offset=
+- download: GET /analyze/{job_id}/results/download
 - background execution: extraction + token scanning in process pool
 - results limit: capped to 100
 
@@ -175,6 +179,7 @@ docker compose run --rm test pytest tests/integration_test/
 
 ## 10) Updates in this iteration
 
+- Added analysis results payload field `csv_download_url` and CSV download endpoint `GET /analyze/{job_id}/results/download`.
 - Added structured error response shape with request_id.
 - Added request/response logging with X-Request-ID propagation.
 - Added job-level structured logs: job_submitted, job_started, job_completed, job_failed.

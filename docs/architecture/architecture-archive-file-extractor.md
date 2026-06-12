@@ -1,7 +1,7 @@
 # Architecture: Archive File Extractor
 
-**Version:** 1.0.0
-**Last Updated:** 2026-06-11
+**Version:** 1.0.1
+**Last Updated:** 2026-06-12
 **Scenario:** C — Reverse Engineering
 
 ---
@@ -150,9 +150,10 @@ See: [component-archive-file-extractor.puml](diagrams/component-archive-file-ext
 |---|---|---|---|---|
 | `POST` | `/analyze/` | Submit analysis job | `multipart/form-data`: `archive` (file) | `202 {"job_id": "...", "status": "queued"}` |
 | `GET` | `/analyze/{job_id}` | Poll job status | — | `200 {"status": "processing\|completed\|failed"}` |
-| `GET` | `/analyze/{job_id}/results` | List token statistics (paginated) | Query: `limit` (default 20, max 100), `offset` (default 0) | `200 {"total": N, "statistics": {...}, "csv_path": "..."}` |
+| `GET` | `/analyze/{job_id}/results` | List token statistics (paginated) with CSV download URL | Query: `limit` (default 20, max 100), `offset` (default 0) | `200 {"total": N, "statistics": {...}, "csv_download_url": "http://.../analyze/{job_id}/results/download"}` |
+| `GET` | `/analyze/{job_id}/results/download` | Download analysis CSV file as attachment | — | `200` (file download) |
 
-**Code evidence:** `app/api/analyze_api.py:10-29`
+**Code evidence:** `app/api/analyze_api.py:10-32`, `app/service/analysis_service.py:109-124`
 
 ### 5.3 Health Check
 
@@ -268,6 +269,7 @@ See: [deployment-archive-file-extractor.puml](diagrams/deployment-archive-file-e
 | REQ-07 | Support ZIP, TAR, TAR.GZ, TGZ archive formats | §4 Component | `app/worker/archive_extractor.py:10-11`, `app/worker/archive_extractor.py:31-42` |
 | REQ-08 | Persist job and file metadata to a relational database | §6 Data Architecture | `app/model.py:9-65` |
 | REQ-09 | Export token analysis results as a CSV file | §7.2 Data Flow | `app/worker/firmware_analyzer.py:11-19`, `app/worker/firmware_analyzer.py:58` |
+| REQ-10 | Provide CSV download URL in analysis result payload and support explicit download endpoint | §5.2 Interface Architecture | `app/service/analysis_service.py:122-124`, `app/api/analyze_api.py:29-32` |
 
 ---
 
