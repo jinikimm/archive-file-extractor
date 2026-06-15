@@ -7,7 +7,7 @@ from datetime import datetime
 from flask import current_app, request
 
 from ..error_handler import ConflictError, NotFoundError, ValidationError
-from ..model import AnalysisJob, db
+from ..db.model import AnalysisJob, db
 from ..service.utils import cleanup, save_file
 from ..worker.archive_extractor import extract_all_archives_parrel
 from ..worker.firmware_analyzer import firmware_analyzer, get_analysis_csv_path

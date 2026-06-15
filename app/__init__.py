@@ -26,7 +26,7 @@ def create_app(test_config=None):
 
     os.makedirs(app.instance_path, exist_ok=True)
 
-    from .model import db
+    from .db.model import db
 
     db.init_app(app)
     Migrate(app, db)
@@ -55,7 +55,7 @@ def create_app(test_config=None):
         global thread_shutdown_event, process_shutdown_event
         thread_shutdown_event.set()
         process_shutdown_event.set()
-        
+
         app.logger.info("Received shutdown signal.")
         
         for thread in threading.enumerate():

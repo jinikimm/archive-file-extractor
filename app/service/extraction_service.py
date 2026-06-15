@@ -8,7 +8,7 @@ from datetime import datetime
 from flask import current_app
 
 from ..error_handler import ConflictError, NotFoundError, ValidationError
-from ..model import ExtractionJob, File, db
+from ..db.model import ExtractionJob, File, db
 from ..service.utils import cleanup, save_file
 from ..worker.archive_extractor import extract_all_archives_parrel
 
