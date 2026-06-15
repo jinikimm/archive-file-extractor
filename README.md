@@ -45,15 +45,24 @@ python -m app.main
 Default API port: 5000
 
 ## 2) Run with Docker / docker-compose
-docker-compose (db + app):
+
+#### Why Dockerfile and docker-compose?
+- **Dockerfile**
+	- Defines a reproducible runtime environment for the application
+	- Ensures consistent Python version, dependencies, and system packages
+	- Eliminates local environment differences (e.g., WSL, Mac, Linux)
+
+- **docker-compose**
+	- Orchestrates multi-container setup (app + DB) required for the service
+	- Simplifies running dependencies (PostgreSQL) without manual setup
+	- Provides a single command to bootstrap the entire system
+
+#### How it works in this project
+**docker-compose (db + app):**
 
 ```bash
 docker compose up --build app db
 ```
-
-compose app startup command runs DB migration first:
-- flask db upgrade
-- python -m app.main
 
 ### Example usage
 
