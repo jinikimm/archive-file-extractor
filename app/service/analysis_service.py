@@ -84,7 +84,7 @@ class AnalysisService:
         t = threading.Thread(
             target=self._process_analysis_job,
             args=(app, job_id, file_path),
-            daemon=True,
+            daemon=False,
         )
         t.start()
 

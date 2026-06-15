@@ -5,7 +5,7 @@ import zipfile
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from ..error_handler import ArchiveError, ValidationError
-
+from .. import thread_shutdown_event
 
 def is_archive(file_name):
     return file_name.lower().endswith((".zip", ".tar", ".tar.gz", ".tgz"))
@@ -78,6 +78,8 @@ def extract_all_archives_parrel(file_path, max_depth=10, max_worker=10):
         }
 
         while futures:
+            if thread_shutdown_event.is_set():
+                raise RuntimeError("Extraction was interrupted by shutdown signal")
             done, _ = wait(futures, return_when=FIRST_COMPLETED)
 
             for future in done:

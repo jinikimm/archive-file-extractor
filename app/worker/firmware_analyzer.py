@@ -4,6 +4,7 @@ import os
 import re
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
+from .. import process_shutdown_event
 
 TOKEN_PATTERN = re.compile(rb"<Tkn\d{3}[A-Z]{5}Tkn>")
 
@@ -45,6 +46,8 @@ def firmware_analyzer(file_list, root_dir, csv_output_path, max_workers=10):
     ) as executor:
         counters = executor.map(scan_token, file_paths)
         for file_path, token_counter in zip(file_paths, counters):
+            if process_shutdown_event.is_set():
+                raise RuntimeError("Analysis was interrupted by shutdown signal")
             if not token_counter:
                 continue
 

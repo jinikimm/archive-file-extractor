@@ -111,7 +111,7 @@ class ExtractionService:
         t = threading.Thread(
             target=self._process_extraction_job,
             args=(app, job_id, file_path, pattern),
-            daemon=True,
+            daemon=False,
         )
         t.start()
 
