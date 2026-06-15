@@ -5,7 +5,7 @@ import pytest
 
 from app import create_app
 from app.api import extraction_api
-from app.model import ExtractionJob, File, db
+from app.db.model import ExtractionJob, File, db
 
 
 @pytest.fixture

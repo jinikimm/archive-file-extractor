@@ -6,7 +6,7 @@ import pytest
 
 from app import create_app
 from app.api import analyze_api
-from app.model import AnalysisJob, db
+from app.db.model import AnalysisJob, db
 
 
 @pytest.fixture
@@ -106,7 +106,7 @@ def test_get_analysis_results_completed_with_pagination(client):
     assert response.status_code == 200
     assert body["total"] == 5
     assert len(body["statistics"]) == 2
-    assert body["csv_path"].endswith("analysis_job-an-1.csv")
+    assert body["csv_download_url"].endswith("/results/download")
 
 
 def test_analyze_results_limit_is_capped_to_100(client):

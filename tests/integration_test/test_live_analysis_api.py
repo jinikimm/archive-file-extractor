@@ -151,7 +151,7 @@ def test_live_analysis_results_after_completed(base_url):
         assert rs == 200
         assert "statistics" in rb
         assert "total" in rb
-        assert "csv_path" in rb
+        assert "csv_download_url" in rb
     else:
         assert rs == 409
         assert rb["error"]["code"] == "conflict"
