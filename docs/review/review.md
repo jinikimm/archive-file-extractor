@@ -21,7 +21,8 @@
 - Add usage explanation to README
 
 **Updates**
-- .
+- Added the usage of docker/docker-compose to README.md
+    (https://github.com/jinikimm/archive-file-extractor#2-run-with-docker--docker-compose)
 
 
 ---
@@ -51,7 +52,18 @@
     - `<Domain>MicroserviceUnitTests/` — Unit tests (separate Poetry environment)
 
 **Updates**
-- .
+- https://github.com/jinikimm/archive-file-extractor/tree/main/app/db
+
+  (updated layout)
+  - `service/` — Business logic implementation
+  - `api/` — HTTP request/response handling
+  - `worker/` — Background async processing
+  - `db/` — Domain data models
+  - `__init__.py`
+  - `config.py` — Global configuration
+  - `error_handler.py` — Exception handling
+  - `logger.py` — Logging initialization
+  - `main.py`
 
 ---
 
