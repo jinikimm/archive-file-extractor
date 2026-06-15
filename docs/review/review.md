@@ -2,6 +2,7 @@
 
 | Summary of review feedback with clear actions and update tracking.
 
+
 ----
 
 ### 260612-Update
@@ -151,3 +152,86 @@
 
 **Updates**
 - .
+
+---
+
+### 260615-Update
+
+---
+
+
+### 9. File Storage & Cleanup Policy
+
+**Q.** Where are uploaded files and extracted files stored? Are they managed permanently or cleaned up under specific conditions? How should this be managed?
+
+**Answer**
+- All temporary files are cleaned up after job completion (success or failure)
+- Storage location: `/tmp/{service}/{job_id}/` (service = "extract" or "analysis")
+- Job metadata persists in database (status, statistics JSON, CSV path reference)
+- No permanent file storage; cleanup() called in finally block guarantees cleanup even on exceptions
+
+**Action**
+- N.A
+
+**Updates**
+- N.A
+
+---
+
+### 10. API Response Design by Job Status
+
+**Q.** What should GET {extractions/analyses}/{job_id} response look like across different statuses and success/failure cases?
+
+**Answer**
+
+Job status: `queued` → `processing` → `completed` / `failed`
+
+Response by status:
+- **queued**:  `{status}`
+- **processing**:  `{status}`
+- **completed (HTTP 200)**: `{status}`
+- **failed (HTTP varies by exception)**: `{status}`
+- **not found (HTTP 404)**: `{error: {code, message, job_id}}`
+
+HTTP status codes:
+- 200: queued, processing, completed, failed (actual status in response)
+- 400: Invalid input (missing file/pattern)
+- 404: Job not found
+- 500: Processing error (extraction/analysis/shutdown interrupted)
+
+**Action**
+- Update API documentation with complete response schemas
+- Add HTTP status code reference table
+
+**Updates**
+- .
+
+---
+
+### 11. API Endpoint Naming Convention
+
+**Q.** What naming rule should be followed? extractions(plural) vs analyze(verbs)?
+
+**Answer**
+- **Chosen pattern**: RESTful noun-based naming
+  -  POST /extractions → Submit extraction job
+  -  GET /extractions/{job_id} → Retrieve extraction job status
+  -  POST /analyses → Submit analysis job
+  -  GET /analyses/{job_id} → Retrieve analysis job status
+
+- **Avoid**: Verb-based naming
+  -  POST /extract
+  -  POST /analyze
+  -  GET /get_job_status
+
+Current Status: Naming not yet unified (extraction_api uses /extractions ✓, analyze_api uses /analyze ✗)
+
+**Action**
+- Standardize all API endpoints to noun-based plural form
+- Update analyze_api.py to use /analyses instead of /analyze
+- Update all client code references
+
+**Updates**
+- .
+
+---
