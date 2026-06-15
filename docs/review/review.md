@@ -52,7 +52,7 @@
     - `<Domain>MicroserviceUnitTests/` — Unit tests (separate Poetry environment)
 
 **Updates**
-- https://github.com/jinikimm/archive-file-extractor/tree/main/app/db
+- https://github.com/jinikimm/archive-file-extractor/commit/346eb96a7542031b736342e242ea20de06b45ce3
 
   (updated layout)
   - `service/` — Business logic implementation
@@ -115,7 +115,7 @@
 - Modify `submit_*_job` to return status-aware response
 
 **Updates**
-- .
+- [4c71a3710e3a5f756de676f95e037fb3d3aa4972](https://github.com/jinikimm/archive-file-extractor/commit/4c71a3710e3a5f756de676f95e037fb3d3aa4972)
 
 ---
 
