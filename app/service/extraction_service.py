@@ -20,15 +20,15 @@ class ExtractionService:
             work_path=file_path,
             file_name=os.path.basename(file_path),
             file_size=os.path.getsize(file_path),
-            status="processing",
+            status="queued",
             submitted_at=datetime.utcnow(),
         )
         db.session.add(job)
         db.session.commit()
 
-        return job_id
+        return job_id, job.status
 
-    def update_extracted_file(self, f, job_id, work_dir):
+    def create_extracted_file(self, f, job_id, work_dir):
         full_path = os.path.relpath(f["full_path"], work_dir)
         paths = full_path.split(os.sep)
 
@@ -47,22 +47,35 @@ class ExtractionService:
             )
         )
 
+    def update_extraction_job_status(self, job_id, status, **kwargs):
+        job = ExtractionJob.query.get(job_id)
+        if job: 
+            job.status = status
+            if status == "processing":
+                job.started_at = datetime.utcnow()
+            if status == "completed":
+                job.completed_at = datetime.utcnow()
+            if status == "failed" and "error_message" in kwargs:
+                job.completed_at = datetime.utcnow()
+                job.error_message = kwargs["error_message"]
+            db.session.commit()
+
     def _process_extraction_job(self, app, job_id, file_path, pattern):
         with app.app_context():
             work_dir = os.path.dirname(file_path)
             app.logger.info(json.dumps({"event": "job_started", "job_id": job_id}))
             try:
+                self.update_extraction_job_status(job_id, "processing")
+
                 file_list = extract_all_archives_parrel(file_path)
 
                 for f in file_list:
                     if fnmatch.fnmatch(f["file_name"], pattern):
-                        self.update_extracted_file(f, job_id, work_dir)
+                        self.create_extracted_file(f, job_id, work_dir)
 
                 job = ExtractionJob.query.get(job_id)
                 if job and job.status != "failed":
-                    job.status = "completed"
-                    job.completed_at = datetime.utcnow()
-                    db.session.commit()
+                    self.update_extraction_job_status(job_id, "completed")
                     app.logger.info(
                         json.dumps({"event": "job_completed", "job_id": job_id})
                     )
@@ -75,11 +88,7 @@ class ExtractionService:
                 )
 
                 db.session.rollback()
-                job = ExtractionJob.query.get(job_id)
-                job.status = "failed"
-                job.completed_at = datetime.utcnow()
-                job.error_message = str(e)
-                db.session.commit()
+                self.update_extraction_job_status(job_id, "failed", error_message=str(e))
 
             finally:
                 cleanup(work_dir)
@@ -104,7 +113,7 @@ class ExtractionService:
             cleanup(work_dir)
             raise ValidationError(details=[{"field": "file", "message": str(e)}])
 
-        self.create_extraction_job(job_id, file_path)
+        _, job_status = self.create_extraction_job(job_id, file_path)
 
         app = current_app._get_current_object()
         app.logger.info(json.dumps({"event": "job_submitted", "job_id": job_id}))
@@ -115,7 +124,7 @@ class ExtractionService:
         )
         t.start()
 
-        return job_id
+        return {"job_id": job_id, "status": job_status}
 
     def get_extraction_job_status(self, job_id):
         job = ExtractionJob.query.get(job_id)

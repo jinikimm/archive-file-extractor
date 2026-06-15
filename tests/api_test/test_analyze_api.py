@@ -41,7 +41,7 @@ def test_create_analysis_job_returns_202_and_job_id(client, monkeypatch):
     monkeypatch.setattr(
         analyze_api.analysis_service,
         "submit_analysis_job",
-        lambda file: "job-submit-1",
+        lambda file: {"job_id": "job-submit-1", "status": "queued"},
     )
 
     response = submit_analysis(client)

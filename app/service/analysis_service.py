@@ -18,17 +18,36 @@ class AnalysisService:
         job = AnalysisJob(
             id=job_id,
             source_archive_name=os.path.basename(file_path),
-            status="processing",
+            status="queued",
             submitted_at=datetime.utcnow(),
         )
         db.session.add(job)
         db.session.commit()
+
+        return job_id, job.status
+
+    def update_analysis_job_status(self, job_id, status, **kwargs):
+        job = AnalysisJob.query.get(job_id)
+        if job: 
+            job.status = status
+            if status == "processing":
+                job.started_at = datetime.utcnow()
+            if status == "completed" and "statistics" in kwargs and "csv_path" in kwargs:
+                job.completed_at = datetime.utcnow()
+                job.statistics = json.dumps(kwargs["statistics"])
+                job.csv_path = kwargs["csv_path"]
+            if status == "failed" and "error_message" in kwargs:
+                job.completed_at = datetime.utcnow()
+                job.error_message = kwargs["error_message"]
+            db.session.commit()
 
     def _process_analysis_job(self, app, job_id, file_path):
         with app.app_context():
             work_dir = os.path.dirname(file_path)
             app.logger.info(json.dumps({"event": "job_started", "job_id": job_id}))
             try:
+                self.update_analysis_job_status(job_id, "processing")
+
                 file_list = extract_all_archives_parrel(file_path)
 
                 csv_path = get_analysis_csv_path(job_id)
@@ -36,11 +55,7 @@ class AnalysisService:
 
                 job = AnalysisJob.query.get(job_id)
                 if job and job.status != "failed":
-                    job.statistics = json.dumps(statistics)
-                    job.csv_path = csv_path
-                    job.status = "completed"
-                    job.completed_at = datetime.utcnow()
-                    db.session.commit()
+                    self.update_analysis_job_status(job_id, "completed", statistics=statistics, csv_path=csv_path)
                     app.logger.info(
                         json.dumps({"event": "job_completed", "job_id": job_id})
                     )
@@ -53,11 +68,7 @@ class AnalysisService:
                 )
 
                 db.session.rollback()
-                job = AnalysisJob.query.get(job_id)
-                job.status = "failed"
-                job.completed_at = datetime.utcnow()
-                job.error_message = str(e)
-                db.session.commit()
+                self.update_analysis_job_status(job_id, "failed", error_message=str(e))
 
             finally:
                 cleanup(work_dir)
@@ -77,7 +88,7 @@ class AnalysisService:
             cleanup(work_dir)
             raise ValidationError(details=[{"field": "file", "message": str(e)}])
 
-        self.create_analysis_job(job_id, file_path)
+        _, job_status = self.create_analysis_job(job_id, file_path)
 
         app = current_app._get_current_object()
         app.logger.info(json.dumps({"event": "job_submitted", "job_id": job_id}))
@@ -88,7 +99,7 @@ class AnalysisService:
         )
         t.start()
 
-        return job_id
+        return {"job_id": job_id, "status": job_status}
 
     def get_analysis_job_status(self, job_id):
         job = AnalysisJob.query.get(job_id)

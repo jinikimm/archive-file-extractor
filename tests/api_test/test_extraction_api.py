@@ -45,7 +45,7 @@ def test_create_extraction_job_returns_202_and_job_id(client, monkeypatch):
     monkeypatch.setattr(
         extraction_api.extraction_service,
         "submit_extraction_job",
-        lambda file, pattern: "job-submit-1",
+        lambda file, pattern: {"job_id": "job-submit-1", "status": "queued"},
     )
 
     response = submit_extraction(client)
@@ -53,6 +53,7 @@ def test_create_extraction_job_returns_202_and_job_id(client, monkeypatch):
 
     assert response.status_code == 202
     assert body["job_id"] == "job-submit-1"
+    assert body["status"] == "queued"
 
 
 def test_create_extraction_job_missing_file_returns_validation_error(client):

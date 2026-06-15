@@ -9,8 +9,8 @@ analysis_service = AnalysisService()
 @bp.route("/", methods=["POST"])
 def create_analysis_job():
     file = request.files.get("archive")
-    job_id = analysis_service.submit_analysis_job(file)
-    return jsonify({"job_id": job_id, "status": "queued"}), 202
+    result = analysis_service.submit_analysis_job(file)
+    return jsonify(result), 202
 
 
 @bp.route("/<job_id>", methods=["GET"])

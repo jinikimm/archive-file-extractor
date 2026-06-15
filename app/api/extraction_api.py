@@ -10,8 +10,8 @@ extraction_service = ExtractionService()
 def create_extraction_job():
     file = request.files.get("archive")
     pattern = request.form.get("pattern", "*.json")
-    job_id = extraction_service.submit_extraction_job(file, pattern)
-    return jsonify({"job_id": job_id}), 202
+    result = extraction_service.submit_extraction_job(file, pattern)
+    return jsonify(result), 202
 
 
 @bp.route("/<job_id>", methods=["GET"])
