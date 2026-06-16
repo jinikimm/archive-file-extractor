@@ -95,10 +95,11 @@
 - ErrorHandler: converts exceptions → HTTP response
 
 **Action**
-- N.A
+- Add input validation for pagination value
 
 **Updates**
-- N.A
+- [app/api/extraction_api.py](app/api/extraction_api.py), [app/api/analyze_api.py](app/api/analyze_api.py):  Add input validation for pagination
+- [docs/api/swagger.yaml](docs/api/swagger.yaml): Add detailed error scenario and reponse examples to all endpoints
 
 ---
 
@@ -147,7 +148,7 @@
 - Update additional detailed exception handling
 
 **Updates**
-- .
+- [docs/api/swagger.yaml](docs/api/swagger.yaml): Add detailed error scenario and reponse examples to all endpoints
 
 ---
 
@@ -163,7 +164,11 @@
 - Ensure try/catch exists at API boundary
 
 **Updates**
-- .
+- [app/api/extraction_api.py](app/api/extraction_api.py), [app/api/analyze_api.py](app/api/analyze_api.py): Add try/catch for exception handling at API boundary
+- [app/service/extraction_service.py](app/service/extraction_service.py), [app/service/analysis_service.py](app/service/analysis_service.py): Add exception handling for database commits
+- [docs/api/swagger.yaml](docs/api/swagger.yaml): Define error response schemas (400, 404, 500, 503) for each endpoint
+
+
 
 ---
 
@@ -216,7 +221,9 @@ HTTP status codes:
 - Add HTTP status code reference table
 
 **Updates**
-- .
+- [app/service/extraction_service.py](app/service/extraction_service.py), [app/service/analysis_service.py](app/service/analysis_service.py): Updated to return responses based on actual job status
+- [app/api/extraction_api.py](app/api/extraction_api.py), [app/api/analyze_api.py](app/api/analyze_api.py): Applied actual status codes based on job state
+- [docs/api/swagger.yaml](docs/api/swagger.yaml): Added complete response schemas and examples
 
 ---
 
