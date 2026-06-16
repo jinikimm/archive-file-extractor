@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 
+from ..error_handler import ValidationError
 from ..service.extraction_service import ExtractionService
 
 bp = Blueprint("extractions", __name__, url_prefix="/extractions")
@@ -22,7 +23,17 @@ def get_extraction_job_status(job_id):
 
 @bp.route("/<job_id>/results", methods=["GET"])
 def list_extraction_results(job_id):
-    limit = int(request.args.get("limit", 10))
-    offset = int(request.args.get("offset", 0))
+    try:
+        limit = min(int(request.args.get("limit", 10)), 100)
+        offset = int(request.args.get("offset", 0))
+    except ValueError:
+        raise ValidationError(
+            details=[{"field": "query", "message": "limit and offset must be integers"}]
+        )
+    if limit < 0 or offset < 0:
+        raise ValidationError(
+            details=[{"field": "query", "message": "limit and offset must be non-negative"}]
+        )
+
     result = extraction_service.list_extraction_results(job_id, limit, offset)
     return jsonify(result), 200

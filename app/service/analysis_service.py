@@ -29,16 +29,14 @@ class AnalysisService:
     def update_analysis_job_status(self, job_id, status, **kwargs):
         job = AnalysisJob.query.get(job_id)
         if job: 
-            job.status = status
-            if status == "processing":
-                job.started_at = datetime.utcnow()
-            if status == "completed" and "statistics" in kwargs and "csv_path" in kwargs:
+            if job.status == "queued" and status == "completed" and "statistics" in kwargs and "csv_path" in kwargs:
                 job.completed_at = datetime.utcnow()
                 job.statistics = json.dumps(kwargs["statistics"])
                 job.csv_path = kwargs["csv_path"]
-            if status == "failed" and "error_message" in kwargs:
+            if job.status != "completed" and status == "failed" and "error_message" in kwargs:
                 job.completed_at = datetime.utcnow()
                 job.error_message = kwargs["error_message"]
+            job.status = status
             db.session.commit()
 
     def _process_analysis_job(self, app, job_id, file_path):

@@ -30,6 +30,11 @@ class ExtractionService:
 
     def create_extracted_file(self, f, job_id, work_dir):
         full_path = os.path.relpath(f["full_path"], work_dir)
+        if os.path.isabs(full_path) or full_path.startswith(".."):
+            raise ValidationError(
+                details=[{"field": "file_path", "message": "Invalid extracted file path"}]
+            )
+
         paths = full_path.split(os.sep)
 
         source_archive_name = paths[0]
@@ -51,8 +56,6 @@ class ExtractionService:
         job = ExtractionJob.query.get(job_id)
         if job: 
             job.status = status
-            if status == "processing":
-                job.started_at = datetime.utcnow()
             if status == "completed":
                 job.completed_at = datetime.utcnow()
             if status == "failed" and "error_message" in kwargs:
@@ -72,6 +75,7 @@ class ExtractionService:
                 for f in file_list:
                     if fnmatch.fnmatch(f["file_name"], pattern):
                         self.create_extracted_file(f, job_id, work_dir)
+                db.session.commit()
 
                 job = ExtractionJob.query.get(job_id)
                 if job and job.status != "failed":

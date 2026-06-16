@@ -2,7 +2,7 @@ openapi: 3.0.3
 
 info:
   title: Archive Extractor / Analysis API
-  version: 1.0.2
+  version: 1.0.3
   description: |
     API for asynchronous archive extraction and firmware token analysis.
     Job submission returns HTTP 202 and clients poll status/results endpoints.
@@ -42,6 +42,9 @@ paths:
   /extractions/:
     post:
       summary: Submit extraction job
+      description: |
+        Submits an archive extraction job.
+        Even when background extraction later fails, this endpoint still returns 202 after successful enqueue.
       requestBody:
         required: true
         content:
@@ -64,12 +67,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JobSubmitResponse"
+              examples:
+                queued:
+                  value:
+                    job_id: "8d4e7f9a-11d7-43ef-a9cb-c9911cd9ef14"
+                    status: queued
         "400":
-          $ref: "#/components/responses/ValidationError"
+          description: Validation failed (for example missing archive or invalid filename)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missing_archive:
+                  $ref: "#/components/examples/ValidationMissingArchive"
+        "503":
+          $ref: "#/components/responses/DatabaseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /extractions/{job_id}:
     get:
       summary: Get extraction job status
+      description: |
+        Returns current extraction job status: queued, processing, completed, or failed.
       parameters:
         - $ref: "#/components/parameters/JobId"
       responses:
@@ -81,10 +102,17 @@ paths:
                 $ref: "#/components/schemas/JobStatusResponse"
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "503":
+          $ref: "#/components/responses/DatabaseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /extractions/{job_id}/results:
     get:
       summary: Get extraction results
+      description: |
+        Returns paged extracted files matched by pattern.
+        queued status can return an empty result set.
       parameters:
         - $ref: "#/components/parameters/JobId"
         - name: limit
@@ -106,14 +134,55 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ExtractionResultsResponse"
+              examples:
+                completed:
+                  value:
+                    total: 2
+                    files:
+                      - full_path: sample.zip_extracted/a.json
+                        file_name: a.json
+                        file_size: 123
+                        source_archive_name: sample.zip_extracted
+                        nesting_depth: 1
+                      - full_path: sample.zip_extracted/b.json
+                        file_name: b.json
+                        file_size: 456
+                        source_archive_name: sample.zip_extracted
+                        nesting_depth: 1
+                    limit: 10
+                    offset: 0
+                queued_empty:
+                  value:
+                    total: 0
+                    files: []
+                    limit: 10
+                    offset: 0
+        "400":
+          description: Validation failed for query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalid_query_type:
+                  $ref: "#/components/examples/ValidationInvalidPaginationType"
+                invalid_query_range:
+                  $ref: "#/components/examples/ValidationNegativePagination"
         "404":
           $ref: "#/components/responses/NotFoundError"
         "409":
           $ref: "#/components/responses/ConflictError"
+        "503":
+          $ref: "#/components/responses/DatabaseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /analyze/:
     post:
       summary: Submit analysis job
+      description: |
+        Submits an analysis job. Extraction and token analysis are executed asynchronously.
+        Background failure is reflected later via job status/results endpoints.
       requestBody:
         required: true
         content:
@@ -133,12 +202,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JobSubmitResponse"
+              examples:
+                queued:
+                  value:
+                    job_id: "a65f910e-49d0-4790-8b27-d7702cb0c5d8"
+                    status: queued
         "400":
-          $ref: "#/components/responses/ValidationError"
+          description: Validation failed (for example missing archive or invalid filename)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missing_archive:
+                  $ref: "#/components/examples/ValidationMissingArchive"
+        "503":
+          $ref: "#/components/responses/DatabaseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /analyze/{job_id}:
     get:
       summary: Get analysis job status
+      description: |
+        Returns current analysis job status: queued, processing, completed, or failed.
       parameters:
         - $ref: "#/components/parameters/JobId"
       responses:
@@ -150,10 +237,17 @@ paths:
                 $ref: "#/components/schemas/JobStatusResponse"
         "404":
           $ref: "#/components/responses/NotFoundError"
+        "503":
+          $ref: "#/components/responses/DatabaseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /analyze/{job_id}/results:
     get:
       summary: Get analysis results
+      description: |
+        Returns paged token statistics and CSV download URL.
+        queued status can return an empty statistics map.
       parameters:
         - $ref: "#/components/parameters/JobId"
         - name: limit
@@ -161,8 +255,7 @@ paths:
           schema:
             type: integer
             minimum: 0
-            default: 20
-            maximum: 100
+            default: 10
         - name: offset
           in: query
           schema:
@@ -176,14 +269,46 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AnalysisResultsResponse"
+              examples:
+                completed:
+                  value:
+                    total: 2
+                    statistics:
+                      "<Tkn001ABCDETkn>": 7
+                      "<Tkn002FGHIJTkn>": 3
+                    csv_download_url: http://localhost:5000/analyze/a65f910e-49d0-4790-8b27-d7702cb0c5d8/results/download
+                queued_empty:
+                  value:
+                    total: 0
+                    statistics: {}
+                    csv_download_url: http://localhost:5000/analyze/a65f910e-49d0-4790-8b27-d7702cb0c5d8/results/download
+        "400":
+          description: Validation failed for query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalid_query_type:
+                  $ref: "#/components/examples/ValidationInvalidPaginationType"
+                invalid_query_range:
+                  $ref: "#/components/examples/ValidationNegativePagination"
         "404":
           $ref: "#/components/responses/NotFoundError"
         "409":
           $ref: "#/components/responses/ConflictError"
+        "503":
+          $ref: "#/components/responses/DatabaseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /analyze/{job_id}/results/download:
     get:
       summary: Download analysis CSV result
+      description: |
+        Downloads CSV output for a completed analysis job.
+        If job is still processing or failed, returns conflict.
+        queued jobs can currently trigger internal error when CSV path is not ready.
       parameters:
         - $ref: "#/components/parameters/JobId"
       responses:
@@ -198,6 +323,10 @@ paths:
           $ref: "#/components/responses/NotFoundError"
         "409":
           $ref: "#/components/responses/ConflictError"
+        "503":
+          $ref: "#/components/responses/DatabaseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
 components:
   parameters:
@@ -215,18 +344,49 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            generic:
+              $ref: "#/components/examples/ValidationMissingArchive"
     NotFoundError:
       description: Requested resource was not found
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            job_not_found:
+              $ref: "#/components/examples/NotFoundJob"
     ConflictError:
       description: Resource state conflict (for example, job not finished)
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            job_processing:
+              $ref: "#/components/examples/ConflictProcessing"
+            job_failed:
+              $ref: "#/components/examples/ConflictFailed"
+    DatabaseError:
+      description: Database operation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            database:
+              $ref: "#/components/examples/DatabaseError"
+    InternalError:
+      description: Internal server error (internal_error or archive_error)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            internal:
+              $ref: "#/components/examples/InternalError"
+            archive:
+              $ref: "#/components/examples/ArchiveError"
 
   schemas:
     JobSubmitResponse:
@@ -309,6 +469,13 @@ components:
       properties:
         code:
           type: string
+          enum:
+            - validation_error
+            - not_found
+            - conflict
+            - archive_error
+            - database_error
+            - internal_error
         message:
           type: string
         details:
@@ -326,3 +493,82 @@ components:
         error:
           $ref: "#/components/schemas/ErrorBody"
       required: [request_id, error]
+
+  examples:
+    ValidationMissingArchive:
+      value:
+        request_id: b550f022-f190-497c-a157-6a0f4e15fb10
+        error:
+          code: validation_error
+          message: Invalid snapshot payload
+          details:
+            - field: file
+              message: archive file is required
+    ValidationInvalidPaginationType:
+      value:
+        request_id: 7e325e7f-9d93-4820-b80e-6fdafd102965
+        error:
+          code: validation_error
+          message: Invalid snapshot payload
+          details:
+            - field: query
+              message: limit and offset must be integers
+    ValidationNegativePagination:
+      value:
+        request_id: 9f37508f-c86d-4655-a5b3-b8d81076ea1a
+        error:
+          code: validation_error
+          message: Invalid snapshot payload
+          details:
+            - field: query
+              message: limit and offset must be non-negative
+    NotFoundJob:
+      value:
+        request_id: bb7b95d1-31f4-489b-8f0f-c25f84e34047
+        error:
+          code: not_found
+          message: Resource not found
+          details:
+            - field: job_id
+              message: Job not found
+    ConflictProcessing:
+      value:
+        request_id: 7cd32f01-a07e-42ce-a78b-86ecde804018
+        error:
+          code: conflict
+          message: Conflict
+          details:
+            - field: job_id
+              message: Job is not completed yet
+    ConflictFailed:
+      value:
+        request_id: 36995d66-c11b-4358-8258-c0229d977777
+        error:
+          code: conflict
+          message: Conflict
+          details:
+            - field: job_id
+              message: "Job failed: Archive extraction failed"
+    DatabaseError:
+      value:
+        request_id: d922f9c6-ce8c-4881-ba47-08467cb47c3b
+        error:
+          code: database_error
+          message: Database operation failed
+          details: []
+    InternalError:
+      value:
+        request_id: 9d98e122-ff10-4ad9-9cc2-f80164657f6d
+        error:
+          code: internal_error
+          message: An unexpected error occurred.
+          details: []
+    ArchiveError:
+      value:
+        request_id: 4d083c98-f3c8-43ce-ab38-2fcf67650f16
+        error:
+          code: archive_error
+          message: Archive processing failed
+          details:
+            - field: archive
+              message: "Failed to extract: /tmp/extract/abc/sample.zip - BadZipFile"

@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request, send_file
 
 from ..service.analysis_service import AnalysisService
+from ..error_handler import ValidationError
 
 bp = Blueprint("analyze", __name__, url_prefix="/analyze")
 analysis_service = AnalysisService()
@@ -21,8 +22,18 @@ def get_analysis_job_status(job_id):
 
 @bp.route("/<job_id>/results", methods=["GET"])
 def list_analysis_results(job_id):
-    limit = min(int(request.args.get("limit", 20)), 100)
-    offset = int(request.args.get("offset", 0))
+    try:
+        limit = min(int(request.args.get("limit", 10)), 100)
+        offset = int(request.args.get("offset", 0))
+    except ValueError:
+        raise ValidationError(
+            details=[{"field": "query", "message": "limit and offset must be integers"}]
+        )
+    if limit < 0 or offset < 0:
+        raise ValidationError(
+            details=[{"field": "query", "message": "limit and offset must be non-negative"}]
+        )
+
     result = analysis_service.list_analysis_results(job_id, limit, offset)
     return jsonify(result), 200
 
