@@ -73,6 +73,8 @@ curl -X POST http://localhost:5000/extractions/ \
 -F "archive=@./example/sample_nested_json.zip" \
 -F "pattern=*.json"
 
+# response: {"job_id":"...","status":"queued"}
+
 curl http://localhost:5000/extractions/<job_id>
 
 curl "http://localhost:5000/extractions/<job_id>/results?limit=20&offset=0"
@@ -84,6 +86,8 @@ Firmware Analyzer service:
 
 curl -X POST http://localhost:5000/analyze/ \
 -F "archive=@./example/sample_nested_tokens.zip"
+
+# response: {"job_id":"...","status":"queued"}
 
 curl http://localhost:5000/analyze/<job_id>
 
@@ -172,8 +176,15 @@ docker compose run --rm test pytest tests/integration_test/
 
 ### Shared lifecycle properties
 - asynchronous response on submit (202)
+- initial job state is `queued`, then transitions to `processing` and terminal state
 - terminal status is completed or failed
 - temporary work directory cleanup after job completion/failure
+
+### Graceful shutdown behavior
+- service listens for `SIGINT` and `SIGTERM`
+- shutdown sets shared events for thread/process workers
+- in-flight extraction/analysis workers detect shutdown and fail jobs with interruption reason
+- non-daemon worker threads are joined (up to timeout) before process exit
 
 ## 8) Assumptions and shortcuts
 
@@ -184,9 +195,9 @@ docker compose run --rm test pytest tests/integration_test/
 - Request-level structured logging includes request_id and job lifecycle events.
 
 ## 9) Improvements with more time
-- OpenAPI / Swagger specification.
+- Ensure more detailed exception handling
 
-## 10) Updates in this iteration
+## 10) Bonus Updates
 
 - Added analysis results payload field `csv_download_url` and CSV download endpoint `GET /analyze/{job_id}/results/download`.
 - Added structured error response shape with request_id.
@@ -195,3 +206,6 @@ docker compose run --rm test pytest tests/integration_test/
 - Added archive error handling for corrupt/unsupported archive inputs.
 - Added functional API tests for extraction and analyze endpoints.
 - Added live integration API tests for running environment.
+- Added graceful shutdown handling with worker interruption support.
+- Added OpenAPI specification at docs/api/swagger.yaml and integrated Flasgger UI.
+

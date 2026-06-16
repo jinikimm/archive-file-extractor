@@ -1,7 +1,7 @@
 # Architecture: Archive File Extractor
 
-**Version:** 1.0.1
-**Last Updated:** 2026-06-12
+**Version:** 1.0.2
+**Last Updated:** 2026-06-16
 **Scenario:** C — Reverse Engineering
 
 ---
@@ -112,7 +112,7 @@ Supporting cross-cutting components:
 | ErrorHandler | `app/error_handler.py` | Custom exception hierarchy; centralised Flask error handlers |
 | RequestLogger | `app/logger.py` | Structured JSON request/response logging; `X-Request-ID` correlation |
 | Config | `app/config.py` | Environment-variable–driven configuration |
-| ORM Models | `app/model.py` | SQLAlchemy model definitions for three database tables |
+| ORM Models | `app/db/model.py` | SQLAlchemy model definitions for three database tables |
 
 ### 4.2 Component Diagram
 
@@ -122,13 +122,14 @@ See: [component-archive-file-extractor.puml](diagrams/component-archive-file-ext
 
 | Pattern | Applied In | Code Evidence |
 |---|---|---|
-| Async Job / Polling | ExtractionService, AnalysisService | `app/service/extraction_service.py:103-108`, `app/service/analysis_service.py:64-70` |
-| Repository / ORM | All services | `app/model.py:9-65` |
+| Async Job / Polling | ExtractionService, AnalysisService | `app/service/extraction_service.py`, `app/service/analysis_service.py` |
+| Repository / ORM | All services | `app/db/model.py` |
 | Blueprint Routing | extraction_api, analyze_api | `app/api/extraction_api.py:6`, `app/api/analyze_api.py:6` |
 | Centralised Error Handling | ErrorHandler | `app/error_handler.py:40-85` |
 | Correlation ID | RequestLogger | `app/logger.py:9-11` |
 | Parallel Fan-out (I/O bound) | ArchiveExtractor | `app/worker/archive_extractor.py:68-94` |
 | Parallel Fan-out (CPU bound) | FirmwareAnalyzer | `app/worker/firmware_analyzer.py:44-56` |
+| Graceful Shutdown | App factory + workers | `app/__init__.py`, `app/worker/archive_extractor.py`, `app/worker/firmware_analyzer.py` |
 
 ---
 
@@ -138,8 +139,8 @@ See: [component-archive-file-extractor.puml](diagrams/component-archive-file-ext
 
 | Method | Path | Description | Request | Response |
 |---|---|---|---|---|
-| `POST` | `/extractions/` | Submit extraction job | `multipart/form-data`: `archive` (file), `pattern` (string, default `*.json`) | `202 {"job_id": "..."}` |
-| `GET` | `/extractions/{job_id}` | Poll job status | — | `200 {"status": "processing\|completed\|failed"}` |
+| `POST` | `/extractions/` | Submit extraction job | `multipart/form-data`: `archive` (file), `pattern` (string, default `*.json`) | `202 {"job_id": "...", "status": "queued"}` |
+| `GET` | `/extractions/{job_id}` | Poll job status | — | `200 {"status": "queued\|processing\|completed\|failed"}` |
 | `GET` | `/extractions/{job_id}/results` | List extracted files (paginated) | Query: `limit` (default 10), `offset` (default 0) | `200 {"total": N, "files": [...], "limit": N, "offset": N}` |
 
 **Code evidence:** `app/api/extraction_api.py:10-29`
@@ -149,7 +150,7 @@ See: [component-archive-file-extractor.puml](diagrams/component-archive-file-ext
 | Method | Path | Description | Request | Response |
 |---|---|---|---|---|
 | `POST` | `/analyze/` | Submit analysis job | `multipart/form-data`: `archive` (file) | `202 {"job_id": "...", "status": "queued"}` |
-| `GET` | `/analyze/{job_id}` | Poll job status | — | `200 {"status": "processing\|completed\|failed"}` |
+| `GET` | `/analyze/{job_id}` | Poll job status | — | `200 {"status": "queued\|processing\|completed\|failed"}` |
 | `GET` | `/analyze/{job_id}/results` | List token statistics (paginated) with CSV download URL | Query: `limit` (default 20, max 100), `offset` (default 0) | `200 {"total": N, "statistics": {...}, "csv_download_url": "http://.../analyze/{job_id}/results/download"}` |
 | `GET` | `/analyze/{job_id}/results/download` | Download analysis CSV file as attachment | — | `200` (file download) |
 
@@ -201,7 +202,7 @@ All error responses conform to the following structure:
 | `File` | `files` | Stores metadata for extracted files that matched the pattern |
 | `AnalysisJob` | `analysis_jobs` | Tracks analysis job lifecycle, aggregated token statistics, and CSV output path |
 
-**Code evidence:** `app/model.py:9-65`
+**Code evidence:** `app/db/model.py:1-75`
 
 ### 6.2 Entity Relationship Diagram
 
@@ -263,13 +264,14 @@ See: [deployment-archive-file-extractor.puml](diagrams/deployment-archive-file-e
 | REQ-01 | Accept archive file uploads via REST API | §5 Interface Architecture | `app/api/extraction_api.py:10-13`, `app/api/analyze_api.py:10-12` |
 | REQ-02 | Extract files from nested archives matching a glob pattern | §4 Component, §7.1 Data Flow | `app/service/extraction_service.py:55-59`, `app/worker/archive_extractor.py:68-94` |
 | REQ-03 | Scan extracted files for firmware token patterns | §4 Component, §7.2 Data Flow | `app/worker/firmware_analyzer.py:8`, `app/worker/firmware_analyzer.py:37-60` |
-| REQ-04 | Track job lifecycle (processing → completed / failed) | §6.3 State Machine | `app/model.py:18`, `app/service/extraction_service.py:61-78` |
+| REQ-04 | Track job lifecycle (`queued` → `processing` → `completed` / `failed`) | §6.3 State Machine | `app/db/model.py`, `app/service/extraction_service.py`, `app/service/analysis_service.py` |
 | REQ-05 | Return paginated extraction and analysis results | §5 Interface Architecture | `app/api/extraction_api.py:22-29`, `app/service/extraction_service.py:119-134` |
 | REQ-06 | Expose health check endpoint with DB connectivity verification | §5.3 Health Check | `app/__init__.py:38-43` |
 | REQ-07 | Support ZIP, TAR, TAR.GZ, TGZ archive formats | §4 Component | `app/worker/archive_extractor.py:10-11`, `app/worker/archive_extractor.py:31-42` |
-| REQ-08 | Persist job and file metadata to a relational database | §6 Data Architecture | `app/model.py:9-65` |
+| REQ-08 | Persist job and file metadata to a relational database | §6 Data Architecture | `app/db/model.py:1-75` |
 | REQ-09 | Export token analysis results as a CSV file | §7.2 Data Flow | `app/worker/firmware_analyzer.py:11-19`, `app/worker/firmware_analyzer.py:58` |
 | REQ-10 | Provide CSV download URL in analysis result payload and support explicit download endpoint | §5.2 Interface Architecture | `app/service/analysis_service.py:122-124`, `app/api/analyze_api.py:29-32` |
+| REQ-11 | Support graceful shutdown for in-flight jobs via OS signals | §7 Data Flow, §8 Deployment | `app/__init__.py`, `app/worker/archive_extractor.py`, `app/worker/firmware_analyzer.py` |
 
 ---
 
@@ -277,13 +279,14 @@ See: [deployment-archive-file-extractor.puml](diagrams/deployment-archive-file-e
 
 | ID | NFR | Rationale | Architecture Section | Code Evidence |
 |---|---|---|---|---|
-| NFR-01 | **Asynchronous processing** — API returns HTTP 202 immediately; processing runs in a daemon background thread | Prevents client timeout on large or deeply nested archives | §7 Data Flow | `app/service/extraction_service.py:103-108` |
+| NFR-01 | **Asynchronous processing** — API returns HTTP 202 immediately; processing runs in background workers | Prevents client timeout on large or deeply nested archives | §7 Data Flow | `app/service/extraction_service.py`, `app/service/analysis_service.py` |
 | NFR-02 | **Parallel I/O** — Archive extraction uses `ThreadPoolExecutor` (default 10 workers) | Reduces wall-clock time for deeply nested archive trees | §4 Component | `app/worker/archive_extractor.py:68-94` |
 | NFR-03 | **Parallel CPU** — Token scanning uses `ProcessPoolExecutor` with `spawn` context (default 10 workers) | Bypasses GIL for CPU-bound regex scanning across many files | §4 Component | `app/worker/firmware_analyzer.py:40-56` |
 | NFR-04 | **Structured logging** — Every request logged as JSON with `request_id`, method, path, status, and duration | Enables log aggregation and correlation | §4 Component | `app/logger.py:14-29` |
 | NFR-05 | **Request correlation** — `X-Request-ID` header accepted and propagated on every response | Supports end-to-end request tracing across services | §4 Component | `app/logger.py:9-11`, `app/logger.py:28` |
 | NFR-06 | **Temp file cleanup** — Work directory removed in `finally` block after job completion or failure | Prevents unbounded disk growth | §7 Data Flow | `app/service/extraction_service.py:80-82` |
 | NFR-07 | **Extraction depth limit** — Recursive archive extraction capped at depth 10 | Mitigates resource exhaustion from zip-bomb–style archives | §4 Component | `app/worker/archive_extractor.py:68` |
+| NFR-08 | **Graceful termination** — On `SIGINT`/`SIGTERM`, workers receive shutdown signals and non-daemon threads are joined before exit | Reduces data inconsistency and orphaned in-flight execution during controlled shutdown | §8 Deployment | `app/__init__.py:45-63` |
 
 ---
 
@@ -292,9 +295,9 @@ See: [deployment-archive-file-extractor.puml](diagrams/deployment-archive-file-e
 | ID | Risk | Severity | Likelihood | Mitigation | Status |
 |---|---|---|---|---|---|
 | RISK-01 | **No authentication** — All API endpoints are publicly accessible without credentials | High | High | Add API key validation or OAuth2 middleware before routing | Open |
-| RISK-02 | **Tarfile path traversal** — `tarfile.extractall()` without `filter='data'` may write files outside the target directory on Python < 3.12 | High | Medium | Pass `filter='data'` to `tarfile.extractall()` (`app/worker/archive_extractor.py:42`) | Open |
+| RISK-02 | **Archive path traversal** — ZIP/TAR member extraction currently uses archive member names directly and may write outside the target directory on crafted inputs | High | Medium | Validate/normalise member paths before extraction and reject absolute or parent-relative entries in `app/worker/archive_extractor.py` | Open |
 | RISK-03 | **Unsanitised upload filename** — `save_file()` uses `file.filename` directly; a crafted filename containing `../` sequences could write outside `save_dir` | Medium | Low | Apply `werkzeug.utils.secure_filename()` before constructing the path in `app/service/utils.py:10` | Open |
-| RISK-04 | **Daemon thread job loss** — Background threads are `daemon=True`; if the process exits mid-job the job remains in `status=processing` indefinitely | Medium | Medium | Add startup reconciliation to mark stale `processing` jobs as `failed`, or migrate to a persistent task queue (e.g. Celery + Redis) | Open |
+| RISK-04 | **Abrupt termination job loss** — Even with graceful shutdown, forced kill/crash can still leave jobs in `processing` | Medium | Medium | Add startup reconciliation to mark stale `processing` jobs as `failed`, or migrate to a persistent task queue (e.g. Celery + Redis) | Open |
 | RISK-05 | **No DB connection pool tuning** — SQLAlchemy default pool may exhaust connections under high concurrency from many parallel threads | Medium | Medium | Set `SQLALCHEMY_ENGINE_OPTIONS` with `pool_size` and `max_overflow` in `app/config.py` | Open |
 | RISK-06 | **Ephemeral CSV storage** — CSV results are written to `/tmp`; a container restart deletes files while `csv_path` in the database still references them | Low | Medium | Mount a persistent volume for results, or store CSV content directly in the database | Open |
 
@@ -308,10 +311,10 @@ See: [deployment-archive-file-extractor.puml](diagrams/deployment-archive-file-e
 |---|---|
 | Status | Accepted |
 | Context | Jobs must be processed asynchronously without blocking the HTTP response |
-| Decision | Use `threading.Thread(daemon=True)` to process jobs in the background within the same process |
-| Rationale | Minimises operational complexity; no additional broker or worker infrastructure required at current scale |
+| Decision | Use non-daemon `threading.Thread(daemon=False)` to process jobs in-process, plus signal-driven graceful shutdown |
+| Rationale | Keeps operational complexity low while allowing controlled worker termination and thread join on shutdown |
 | Consequences | Job state is lost on process restart (see RISK-04). Migration to Celery or equivalent is recommended if durability SLAs are required |
-| Evidence | `app/service/extraction_service.py:103-108` |
+| Evidence | `app/service/extraction_service.py`, `app/service/analysis_service.py`, `app/__init__.py` |
 
 ---
 
@@ -323,7 +326,7 @@ See: [deployment-archive-file-extractor.puml](diagrams/deployment-archive-file-e
 | Context | Token scanning (`re.findall` over binary file content) is CPU-bound and contended by the GIL when threaded |
 | Decision | Use `ProcessPoolExecutor` with `mp_context=multiprocessing.get_context("spawn")` |
 | Rationale | `spawn` avoids forking the Flask application context into child processes, preventing SQLAlchemy session corruption |
-| Evidence | `app/worker/firmware_analyzer.py:40-46` |
+| Evidence | `app/worker/firmware_analyzer.py:39-48` |
 
 ---
 
@@ -335,7 +338,7 @@ See: [deployment-archive-file-extractor.puml](diagrams/deployment-archive-file-e
 | Context | Recursive extraction requires dynamically submitting new extraction tasks as nested archives are discovered |
 | Decision | Use a `while futures` loop with `wait(FIRST_COMPLETED)` to fan out sub-archive extraction as archives are found |
 | Rationale | Threads are sufficient for I/O-bound disk operations and share memory, avoiding spawn overhead |
-| Evidence | `app/worker/archive_extractor.py:68-94` |
+| Evidence | `app/worker/archive_extractor.py:63-95` |
 
 ---
 
@@ -348,4 +351,17 @@ See: [deployment-archive-file-extractor.puml](diagrams/deployment-archive-file-e
 | Decision | Serialise and store as a JSON string in the `TEXT` column `analysis_jobs.statistics` |
 | Rationale | Avoids a separate normalised table for a flexible key-value structure with no foreign-key query requirements |
 | Consequences | Token-level queries require application-side deserialisation; no SQL-level aggregation possible |
-| Evidence | `app/model.py:64`, `app/service/analysis_service.py:104` |
+| Evidence | `app/db/model.py:73`, `app/service/analysis_service.py:36` |
+
+---
+
+### ADR-05: Graceful Shutdown with Shared Thread/Process Events
+
+| Field | Value |
+|---|---|
+| Status | Accepted |
+| Context | Worker execution spans threads and process pools; abrupt exit can interrupt processing mid-flight |
+| Decision | Register signal handlers for `SIGINT`/`SIGTERM`, set shared shutdown events, join non-daemon worker threads, and stop process with exit code 0 |
+| Rationale | Ensures controlled termination path and explicit interruption semantics for running jobs |
+| Consequences | Forced termination (`SIGKILL`) remains outside graceful control; reconciliation logic is still needed for stale jobs |
+| Evidence | `app/__init__.py:45-63`, `app/worker/archive_extractor.py:75-76`, `app/worker/firmware_analyzer.py:47-48` |
