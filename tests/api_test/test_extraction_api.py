@@ -4,8 +4,8 @@ from datetime import datetime
 import pytest
 
 from app import create_app
-from app.api import extraction_api
 from app.db.model import ExtractionJob, File, db
+from app.service.extraction_service import ExtractionService
 
 
 @pytest.fixture
@@ -43,9 +43,9 @@ def create_extraction_job(status="processing", error_message=None):
 
 def test_create_extraction_job_returns_202_and_job_id(client, monkeypatch):
     monkeypatch.setattr(
-        extraction_api.extraction_service,
+        ExtractionService,
         "submit_extraction_job",
-        lambda file, pattern: {"job_id": "job-submit-1", "status": "queued"},
+        lambda self, file, pattern: {"job_id": "job-submit-1", "status": "queued"},
     )
 
     response = submit_extraction(client)

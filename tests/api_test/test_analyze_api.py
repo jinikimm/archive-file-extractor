@@ -5,7 +5,8 @@ from datetime import datetime
 import pytest
 
 from app import create_app
-from app.api import analyze_api
+# from app.api import analysis_service
+from app.service.analysis_service import AnalysisService
 from app.db.model import AnalysisJob, db
 
 
@@ -39,9 +40,9 @@ def create_analysis_job(status="processing", statistics=None, error_message=None
 
 def test_create_analysis_job_returns_202_and_job_id(client, monkeypatch):
     monkeypatch.setattr(
-        analyze_api.analysis_service,
+        AnalysisService,
         "submit_analysis_job",
-        lambda file: {"job_id": "job-submit-1", "status": "queued"},
+        lambda self, file: {"job_id": "job-submit-1", "status": "queued"},
     )
 
     response = submit_analysis(client)

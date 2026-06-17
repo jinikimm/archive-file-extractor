@@ -1,20 +1,21 @@
+import multiprocessing
 import os
-import sys
-
 import signal
+import sys
+import threading
+
 import yaml
 from flasgger import Swagger
 from flask import Flask
 from flask_migrate import Migrate
 from sqlalchemy import text
-import threading
-import multiprocessing
 
 from .error_handler import error_handlers
 from .logger import init_logger
 
 thread_shutdown_event = threading.Event()
 process_shutdown_event = multiprocessing.Event()
+
 
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
@@ -38,10 +39,9 @@ def create_app(test_config=None):
         template = yaml.safe_load(f)
     Swagger(app, template=template)
 
-    from .api import analyze_api, extraction_api
+    from .api import register_apis
 
-    app.register_blueprint(extraction_api.bp)
-    app.register_blueprint(analyze_api.bp)
+    register_apis(app)
 
     @app.get("/health")
     def health():
@@ -50,21 +50,20 @@ def create_app(test_config=None):
             return {"status": "ok"}, 200
         except Exception:
             return {"status": "error"}, 500
-        
+
     def handle_shutdown(signum, frame):
         global thread_shutdown_event, process_shutdown_event
         thread_shutdown_event.set()
         process_shutdown_event.set()
 
         app.logger.info("Received shutdown signal.")
-        
+
         for thread in threading.enumerate():
             if not thread.daemon and thread != threading.current_thread():
                 thread.join(timeout=5)
         sys.exit(0)
-    
+
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
-
 
     return app
