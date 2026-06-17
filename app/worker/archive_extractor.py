@@ -4,8 +4,9 @@ import tarfile
 import zipfile
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
-from ..error_handler import ArchiveError, ValidationError
 from .. import thread_shutdown_event
+from ..error_handler import ArchiveError, ValidationError
+
 
 def is_archive(file_name):
     return file_name.lower().endswith((".zip", ".tar", ".tar.gz", ".tgz"))

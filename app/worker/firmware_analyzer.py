@@ -4,6 +4,7 @@ import os
 import re
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
+
 from .. import process_shutdown_event
 
 TOKEN_PATTERN = re.compile(rb"<Tkn\d{3}[A-Z]{5}Tkn>")

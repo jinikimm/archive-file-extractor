@@ -6,8 +6,8 @@ from datetime import datetime
 
 from flask import current_app, request
 
-from ..error_handler import ConflictError, NotFoundError, ValidationError
 from ..db.model import AnalysisJob, db
+from ..error_handler import ConflictError, NotFoundError, ValidationError
 from ..service.utils import cleanup, save_file
 from ..worker.archive_extractor import extract_all_archives_parrel
 from ..worker.firmware_analyzer import firmware_analyzer, get_analysis_csv_path
@@ -28,12 +28,21 @@ class AnalysisService:
 
     def update_analysis_job_status(self, job_id, status, **kwargs):
         job = AnalysisJob.query.get(job_id)
-        if job: 
-            if job.status == "queued" and status == "completed" and "statistics" in kwargs and "csv_path" in kwargs:
+        if job:
+            if (
+                job.status == "queued"
+                and status == "completed"
+                and "statistics" in kwargs
+                and "csv_path" in kwargs
+            ):
                 job.completed_at = datetime.utcnow()
                 job.statistics = json.dumps(kwargs["statistics"])
                 job.csv_path = kwargs["csv_path"]
-            if job.status != "completed" and status == "failed" and "error_message" in kwargs:
+            if (
+                job.status != "completed"
+                and status == "failed"
+                and "error_message" in kwargs
+            ):
                 job.completed_at = datetime.utcnow()
                 job.error_message = kwargs["error_message"]
             job.status = status
@@ -53,7 +62,9 @@ class AnalysisService:
 
                 job = AnalysisJob.query.get(job_id)
                 if job and job.status != "failed":
-                    self.update_analysis_job_status(job_id, "completed", statistics=statistics, csv_path=csv_path)
+                    self.update_analysis_job_status(
+                        job_id, "completed", statistics=statistics, csv_path=csv_path
+                    )
                     app.logger.info(
                         json.dumps({"event": "job_completed", "job_id": job_id})
                     )
@@ -133,7 +144,8 @@ class AnalysisService:
         return {
             "total": len(items),
             "statistics": paged_statistics,
-            "csv_download_url": request.host_url.rstrip("/") + f"/analyze/{job_id}/results/download",
+            "csv_download_url": request.host_url.rstrip("/")
+            + f"/analyze/{job_id}/results/download",
         }
 
     def get_analysis_csv_path(self, job_id):

@@ -7,8 +7,8 @@ from datetime import datetime
 
 from flask import current_app
 
-from ..error_handler import ConflictError, NotFoundError, ValidationError
 from ..db.model import ExtractionJob, File, db
+from ..error_handler import ConflictError, NotFoundError, ValidationError
 from ..service.utils import cleanup, save_file
 from ..worker.archive_extractor import extract_all_archives_parrel
 
@@ -32,7 +32,9 @@ class ExtractionService:
         full_path = os.path.relpath(f["full_path"], work_dir)
         if os.path.isabs(full_path) or full_path.startswith(".."):
             raise ValidationError(
-                details=[{"field": "file_path", "message": "Invalid extracted file path"}]
+                details=[
+                    {"field": "file_path", "message": "Invalid extracted file path"}
+                ]
             )
 
         paths = full_path.split(os.sep)
@@ -54,7 +56,7 @@ class ExtractionService:
 
     def update_extraction_job_status(self, job_id, status, **kwargs):
         job = ExtractionJob.query.get(job_id)
-        if job: 
+        if job:
             job.status = status
             if status == "completed":
                 job.completed_at = datetime.utcnow()
@@ -92,7 +94,9 @@ class ExtractionService:
                 )
 
                 db.session.rollback()
-                self.update_extraction_job_status(job_id, "failed", error_message=str(e))
+                self.update_extraction_job_status(
+                    job_id, "failed", error_message=str(e)
+                )
 
             finally:
                 cleanup(work_dir)
