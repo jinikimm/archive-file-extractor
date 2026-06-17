@@ -13,7 +13,7 @@ def register_apis(app):
     extraction_apis.add_url_rules(extraction_bp)
     app.register_blueprint(extraction_bp)
 
-    analysis_bp = Blueprint("analysis", __name__, url_prefix="/analyze")
+    analysis_bp = Blueprint("analysis", __name__, url_prefix="/analysis")
     analysis_service = AnalysisService()
     analysis_apis = AnalysisAPIs(analysis_service)
     analysis_apis.add_url_rules(analysis_bp)

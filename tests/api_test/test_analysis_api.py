@@ -20,7 +20,7 @@ def client():
 
 def submit_analysis(client, archive_name="sample.zip", payload=b"PK"):
     data = {"archive": (io.BytesIO(payload), archive_name)}
-    return client.post("/analyze/", data=data, content_type="multipart/form-data")
+    return client.post("/analysis/", data=data, content_type="multipart/form-data")
 
 
 def create_analysis_job(status="processing", statistics=None, error_message=None):
@@ -54,7 +54,7 @@ def test_create_analysis_job_returns_202_and_job_id(client, monkeypatch):
 
 
 def test_create_analysis_job_missing_file_returns_validation_error(client):
-    response = client.post("/analyze/", data={}, content_type="multipart/form-data")
+    response = client.post("/analysis/", data={}, content_type="multipart/form-data")
     body = response.get_json()
 
     assert response.status_code == 400
@@ -62,7 +62,7 @@ def test_create_analysis_job_missing_file_returns_validation_error(client):
 
 
 def test_get_analysis_status_not_found(client):
-    response = client.get("/analyze/not-found")
+    response = client.get("/analysis/not-found")
 
     assert response.status_code == 404
     assert response.get_json()["error"]["code"] == "not_found"
@@ -71,7 +71,7 @@ def test_get_analysis_status_not_found(client):
 def test_get_analysis_status_processing(client):
     create_analysis_job(status="processing")
 
-    response = client.get("/analyze/job-an-1")
+    response = client.get("/analysis/job-an-1")
 
     assert response.status_code == 200
     assert response.get_json()["status"] == "processing"
@@ -80,7 +80,7 @@ def test_get_analysis_status_processing(client):
 def test_get_analysis_results_processing_returns_conflict(client):
     create_analysis_job(status="processing")
 
-    response = client.get("/analyze/job-an-1/results")
+    response = client.get("/analysis/job-an-1/results")
 
     assert response.status_code == 409
     assert response.get_json()["error"]["code"] == "conflict"
@@ -89,7 +89,7 @@ def test_get_analysis_results_processing_returns_conflict(client):
 def test_get_analysis_results_failed_returns_reason(client):
     create_analysis_job(status="failed", error_message="scan failed")
 
-    response = client.get("/analyze/job-an-1/results")
+    response = client.get("/analysis/job-an-1/results")
     body = response.get_json()
 
     assert response.status_code == 409
@@ -101,7 +101,7 @@ def test_get_analysis_results_completed_with_pagination(client):
     stats = {f"token{i}": i for i in range(1, 6)}
     create_analysis_job(status="completed", statistics=stats)
 
-    response = client.get("/analyze/job-an-1/results?limit=2&offset=1")
+    response = client.get("/analysis/job-an-1/results?limit=2&offset=1")
     body = response.get_json()
 
     assert response.status_code == 200
@@ -110,11 +110,11 @@ def test_get_analysis_results_completed_with_pagination(client):
     assert body["csv_download_url"].endswith("/results/download")
 
 
-def test_analyze_results_limit_is_capped_to_100(client):
+def test_analysis_results_limit_is_capped_to_100(client):
     stats = {f"token{i:03d}": i for i in range(120)}
     create_analysis_job(status="completed", statistics=stats)
 
-    response = client.get("/analyze/job-an-1/results?limit=1000&offset=0")
+    response = client.get("/analysis/job-an-1/results?limit=1000&offset=0")
     body = response.get_json()
 
     assert response.status_code == 200
@@ -124,7 +124,7 @@ def test_analyze_results_limit_is_capped_to_100(client):
 def test_request_id_header_is_propagated_on_error(client):
     req_id = "req-an-1"
     response = client.post(
-        "/analyze/",
+        "/analysis/",
         data={},
         content_type="multipart/form-data",
         headers={"X-Request-ID": req_id},

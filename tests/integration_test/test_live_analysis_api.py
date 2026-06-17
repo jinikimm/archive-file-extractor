@@ -84,7 +84,7 @@ def _make_zip_bytes():
 def _submit_analysis(base_url, filename, payload, headers=None):
     return _http_multipart(
         base_url,
-        "/analyze/",
+        "/analysis/",
         {"archive": (filename, payload)},
         headers=headers,
     )
@@ -93,7 +93,7 @@ def _submit_analysis(base_url, filename, payload, headers=None):
 def _poll_status(base_url, job_id, timeout=10.0, interval=0.1):
     deadline = time.time() + timeout
     while time.time() < deadline:
-        status, body = _http_json("GET", base_url, f"/analyze/{job_id}")
+        status, body = _http_json("GET", base_url, f"/analysis/{job_id}")
         assert status == 200
         if body.get("status") in ("completed", "failed"):
             return body.get("status"), body
@@ -146,7 +146,7 @@ def test_live_analysis_results_after_completed(base_url):
 
     final_status, _ = _poll_status(base_url, job_id)
 
-    rs, rb = _http_json("GET", base_url, f"/analyze/{job_id}/results")
+    rs, rb = _http_json("GET", base_url, f"/analysis/{job_id}/results")
     if final_status == "completed":
         assert rs == 200
         assert "statistics" in rb
@@ -166,7 +166,7 @@ def test_live_analysis_results_pagination(base_url):
     final_status, _ = _poll_status(base_url, job_id)
     assert final_status == "completed", f"Expected completed, got {final_status}"
 
-    rs, rb = _http_json("GET", base_url, f"/analyze/{job_id}/results?limit=1&offset=0")
+    rs, rb = _http_json("GET", base_url, f"/analysis/{job_id}/results?limit=1&offset=0")
 
     assert rs == 200
     assert len(rb["statistics"]) <= 1
@@ -181,7 +181,7 @@ def test_live_analysis_results_limit_capped_to_100(base_url):
     assert final_status == "completed", f"Expected completed, got {final_status}"
 
     rs, rb = _http_json(
-        "GET", base_url, f"/analyze/{job_id}/results?limit=9999&offset=0"
+        "GET", base_url, f"/analysis/{job_id}/results?limit=9999&offset=0"
     )
 
     assert rs == 200
@@ -194,7 +194,7 @@ def test_live_analysis_results_while_processing_returns_conflict(base_url):
     job_id = body["job_id"]
 
     # 제출 직후 즉시 조회 — processing 상태일 가능성 높음
-    rs, rb = _http_json("GET", base_url, f"/analyze/{job_id}/results")
+    rs, rb = _http_json("GET", base_url, f"/analysis/{job_id}/results")
 
     assert rs in (200, 409)
     if rs == 409:
@@ -206,7 +206,7 @@ def test_live_analysis_missing_file_returns_validation_error(base_url):
     body = f"--{boundary}--\r\n".encode()
 
     req = request.Request(
-        url=f"{base_url.rstrip('/')}/analyze/",
+        url=f"{base_url.rstrip('/')}/analysis/",
         data=body,
         headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
         method="POST",
@@ -224,14 +224,14 @@ def test_live_analysis_missing_file_returns_validation_error(base_url):
 
 
 def test_live_analysis_job_not_found(base_url):
-    status, body = _http_json("GET", base_url, "/analyze/non-existent-job-id")
+    status, body = _http_json("GET", base_url, "/analysis/non-existent-job-id")
 
     assert status == 404
     assert body["error"]["code"] == "not_found"
 
 
 def test_live_analysis_results_not_found(base_url):
-    status, body = _http_json("GET", base_url, "/analyze/non-existent-job-id/results")
+    status, body = _http_json("GET", base_url, "/analysis/non-existent-job-id/results")
 
     assert status == 404
     assert body["error"]["code"] == "not_found"
@@ -243,7 +243,7 @@ def test_live_analysis_request_id_propagation(base_url):
     body = f"--{boundary}--\r\n".encode()
 
     req = request.Request(
-        url=f"{base_url.rstrip('/')}/analyze/",
+        url=f"{base_url.rstrip('/')}/analysis/",
         data=body,
         headers={
             "Content-Type": f"multipart/form-data; boundary={boundary}",
