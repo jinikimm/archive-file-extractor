@@ -72,13 +72,14 @@
 **Q. Why use Flask Blueprint? What are alternatives?**
 
 **Answer**
-- .
+- Blueprint is used to modularize and group routes, and here it is combined with API classes to centralize routing logic.
 
 **Action**
-- Document design choice and trade-offs vs PSA
+- Refactor API routing by adopting PSA's class-based API pattern with centralized route registration.
 
 **Updates**
-- .
+- [app/api/](https://github.com/jinikimm/archive-file-extractor/tree/main/app/api) ([7aef121
+](https://github.com/jinikimm/archive-file-extractor/commit/7aef1210e114172f92fda786c34f8b3b4bcdcb86) ) : Refactored API routing to class-based structure with centralized add_url_rules() registration.
 
 ---
 
@@ -235,8 +236,8 @@ HTTP status codes:
 - **Chosen pattern**: RESTful noun-based naming
   -  POST /extractions → Submit extraction job
   -  GET /extractions/{job_id} → Retrieve extraction job status
-  -  POST /analyses → Submit analysis job
-  -  GET /analyses/{job_id} → Retrieve analysis job status
+  -  POST /analysis → Submit analysis job
+  -  GET /analysis/{job_id} → Retrieve analysis job status
 
 - **Avoid**: Verb-based naming
   -  POST /extract
@@ -251,6 +252,6 @@ Current Status: Naming not yet unified (extraction_api uses /extractions ✓, an
 - Update all client code references
 
 **Updates**
-- .
+- [app/api/__init__.py](https://github.com/jinikimm/archive-file-extractor/blob/main/app/api/__init__.py) ([9be668d](https://github.com/jinikimm/archive-file-extractor/commit/9be668dff9917829a060cb00b70f2055d834b99e) ) : change api prefix from analyze to analysis for consistency
 
 ---
