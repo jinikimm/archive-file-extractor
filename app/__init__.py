@@ -10,9 +10,6 @@ from flask import Flask
 from flask_migrate import Migrate
 from sqlalchemy import text
 
-from .error_handler import error_handlers
-from .logger import init_logger
-
 thread_shutdown_event = threading.Event()
 process_shutdown_event = multiprocessing.Event()
 
@@ -28,20 +25,21 @@ def create_app(test_config=None):
     os.makedirs(app.instance_path, exist_ok=True)
 
     from .db.model import db
-
     db.init_app(app)
     Migrate(app, db)
 
-    error_handlers(app)
+    from .logger import init_logger
     init_logger(app)
+
+    from .error_handler import error_handlers
+    error_handlers(app)
+
+    from .api import register_apis
+    register_apis(app)
 
     with open("docs/api/swagger.yaml") as f:
         template = yaml.safe_load(f)
     Swagger(app, template=template)
-
-    from .api import register_apis
-
-    register_apis(app)
 
     @app.get("/health")
     def health():
