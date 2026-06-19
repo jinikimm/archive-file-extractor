@@ -118,6 +118,13 @@ def test_get_extraction_results_completed_with_pagination(client):
     db.session.add_all(files)
     db.session.commit()
 
+    response = client.get("/extractions/job-ext-1")
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["status"] == "completed"
+    assert body["matched_count"] == 5
+
     response = client.get("/extractions/job-ext-1/results?limit=2&offset=1")
     body = response.get_json()
 

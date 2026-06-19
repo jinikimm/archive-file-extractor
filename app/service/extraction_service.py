@@ -140,8 +140,12 @@ class ExtractionService:
             raise NotFoundError(
                 details=[{"field": "job_id", "message": "Job not found"}]
             )
+        
+        if job.status == "completed":
+            total_files = File.query.filter_by(job_id=job_id).count()
+            return {"status": job.status, "matched_count": total_files}
 
-        return {"status": job.status}  # matched count 도 반환해야함
+        return {"status": job.status}
 
     def list_extraction_results(self, job_id, limit=10, offset=0):
         job = ExtractionJob.query.get(job_id)
