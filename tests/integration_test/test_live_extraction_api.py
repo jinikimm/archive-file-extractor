@@ -163,7 +163,9 @@ def test_live_extraction_results_pagination(base_url):
 
     final_status, body = _poll_status(base_url, job_id, "extractions")
     assert final_status == "completed", f"Expected completed, got {final_status}"
-    assert body.get("matched_count", 0) > 0, "No matched files found for pagination test"
+    assert (
+        body.get("matched_count", 0) > 0
+    ), "No matched files found for pagination test"
 
     rs, rb = _http_json(
         "GET", base_url, f"/extractions/{job_id}/results?limit=1&offset=0"

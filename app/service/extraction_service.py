@@ -140,7 +140,7 @@ class ExtractionService:
             raise NotFoundError(
                 details=[{"field": "job_id", "message": "Job not found"}]
             )
-        
+
         if job.status == "completed":
             total_files = File.query.filter_by(job_id=job_id).count()
             return {"status": job.status, "matched_count": total_files}
