@@ -1,6 +1,9 @@
 import io
 import json
 from datetime import datetime
+import time
+from io import BytesIO
+import zipfile
 
 import pytest
 
@@ -19,7 +22,26 @@ def client():
         yield app.test_client()
 
 
-def submit_analysis(client, archive_name="sample.zip", payload=b"PK"):
+def _make_zip_bytes():
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("data.json", '{"key": "value"}')
+        zf.writestr("readme.txt", "hello")
+        zf.writestr(
+            "file1.bin",
+            b"<Tkn123ABCDEFTkn>\n<Tkn999HELLOTkn>\nrandomtext"
+        )
+        zf.writestr(
+            "file2.bin",
+            b"<Tkn123ABCDEFTkn><Tkn000ZZZZZTkn>"
+        )
+
+    buf.seek(0)
+    return buf.read()
+
+def submit_analysis(client, archive_name="sample.zip", payload=None):
+    if payload is None:
+        payload = _make_zip_bytes()
     data = {"archive": (io.BytesIO(payload), archive_name)}
     return client.post("/analysis/", data=data, content_type="multipart/form-data")
 
@@ -109,6 +131,27 @@ def test_get_analysis_results_completed_with_pagination(client):
     assert body["total"] == 5
     assert len(body["statistics"]) == 2
     assert body["csv_download_url"].endswith("/results/download")
+
+
+def test_get_analysis_results_completed_polling(client):
+    response = submit_analysis(client)
+    job_id = response.get_json()["job_id"]
+
+    for _ in range(50):
+        res = client.get(f"/analysis/{job_id}")
+        status = res.get_json()["status"]
+
+        if status == "completed":
+            break
+
+        time.sleep(0.1)
+
+    response = client.get(f"/analysis/{job_id}/results")
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["total"] >= 0
+    assert body["statistics"] is not {}
 
 
 def test_analysis_results_limit_is_capped_to_100(client):
