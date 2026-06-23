@@ -77,6 +77,15 @@ def _make_zip_bytes():
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr("data.json", '{"key": "value"}')
         zf.writestr("readme.txt", "hello")
+        zf.writestr(
+            "file1.bin",
+            b"<Tkn123ABCDEFTkn>\n<Tkn999HELLOTkn>\nrandomtext"
+        )
+        zf.writestr(
+            "file2.bin",
+            b"<Tkn123ABCDEFTkn><Tkn000ZZZZZTkn>"
+        )
+
     buf.seek(0)
     return buf.read()
 
@@ -152,6 +161,11 @@ def test_live_analysis_results_after_completed(base_url):
         assert "statistics" in rb
         assert "total" in rb
         assert "csv_download_url" in rb
+
+        assert rb["total"] >= 0
+        assert isinstance(rb["statistics"], dict)
+        assert rb["total"] > 0 or rb["statistics"] != {}
+
     else:
         assert rs == 409
         assert rb["error"]["code"] == "conflict"
@@ -193,7 +207,6 @@ def test_live_analysis_results_while_processing_returns_conflict(base_url):
     assert status == 202
     job_id = body["job_id"]
 
-    # 제출 직후 즉시 조회 — processing 상태일 가능성 높음
     rs, rb = _http_json("GET", base_url, f"/analysis/{job_id}/results")
 
     assert rs in (200, 409)

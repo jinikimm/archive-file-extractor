@@ -30,7 +30,7 @@ class AnalysisService:
         job = AnalysisJob.query.get(job_id)
         if job:
             if (
-                job.status == "queued"
+                job.status == "processing"
                 and status == "completed"
                 and "statistics" in kwargs
                 and "csv_path" in kwargs
@@ -145,7 +145,7 @@ class AnalysisService:
             "total": len(items),
             "statistics": paged_statistics,
             "csv_download_url": request.host_url.rstrip("/")
-            + f"/analyze/{job_id}/results/download",
+            + f"/analysis/{job_id}/results/download",
         }
 
     def get_analysis_csv_path(self, job_id):
