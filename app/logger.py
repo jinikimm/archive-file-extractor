@@ -1,11 +1,13 @@
 import json
 import time
 from uuid import uuid4
+import logging
 
 from flask import g, request
 
 
 def init_logger(app):
+    app.logger.setLevel(logging.INFO)
 
     @app.before_request
     def set_request_id():
