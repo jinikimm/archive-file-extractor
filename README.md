@@ -84,16 +84,16 @@ Firmware Analyzer service:
 
 ```bash
 
-curl -X POST http://localhost:5000/analyze/ \
+curl -X POST http://localhost:5000/analysis/ \
 -F "archive=@./example/sample_nested_tokens.zip"
 
 # response: {"job_id":"...","status":"queued"}
 
-curl http://localhost:5000/analyze/<job_id>
+curl http://localhost:5000/analysis/<job_id>
 
-curl "http://localhost:5000/analyze/<job_id>/results?limit=20&offset=0"
+curl "http://localhost:5000/analysis/<job_id>/results?limit=20&offset=0"
 
-curl -OJ "http://localhost:5000/analyze/<job_id>/results/download"
+curl -OJ "http://localhost:5000/analysis/<job_id>/results/download"
 ```
 
 ## 3) Required environment variables and defaults
